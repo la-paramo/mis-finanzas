@@ -865,18 +865,107 @@ async function syncToSheets() {
   if (!state.sheetsUrl) return;
   setSyncStatus('syncing');
   try {
-    const rows = [];
+    // Write all transactions
+    const txRows = [];
     Object.entries(state.data).forEach(([key, d]) => {
       d.transactions.forEach(tx => {
-        rows.push([key, tx.date, tx.desc, tx.bucket, tx.account, tx.amount, tx.nextMonth ? 'PRÓXIMO' : 'ACTUAL', tx.id]);
+        txRows.push([key, tx.date, tx.desc, tx.bucket, tx.account, tx.amount, tx.id, tx.notes || '']);
       });
     });
-    await fetch(state.sheetsUrl, {
-      method:'POST', mode:'no-cors',
-      body: JSON.stringify({ sheet:'Transacciones', action:'clear_append', range:'A2:H1000', startRow:2, rows })
+
+    // Write income data
+    const incRows = [];
+    Object.entries(state.data).forEach(([key, d]) => {
+      if (d.income > 0) {
+        incRows.push([key, d.income, JSON.stringify(d.extras || [])]);
+      }
     });
+
+    // Write config (sheetsUrl, emergencyFund, emergencyGoal)
+    const configRows = [
+      ['sheetsUrl', state.sheetsUrl],
+      ['emergencyFund', state.emergencyFund],
+      ['emergencyGoal', state.emergencyGoal],
+    ];
+
+    await Promise.all([
+      fetch(state.sheetsUrl, {
+        method:'POST',
+        body: JSON.stringify({ sheet:'Transacciones', action:'clear_append', range:'A2:H2000', startRow:2, rows: txRows })
+      }),
+      fetch(state.sheetsUrl, {
+        method:'POST',
+        body: JSON.stringify({ sheet:'Ingresos', action:'clear_append', range:'A2:C200', startRow:2, rows: incRows })
+      }),
+      fetch(state.sheetsUrl, {
+        method:'POST',
+        body: JSON.stringify({ sheet:'Config', action:'clear_append', range:'A2:B20', startRow:2, rows: configRows })
+      }),
+    ]);
     setSyncStatus('ok');
   } catch(e) { setSyncStatus('err'); }
+}
+
+async function loadFromSheets(url) {
+  try {
+    setSyncStatus('syncing');
+
+    // Load transactions
+    const txRes  = await fetch(url + '?sheet=Transacciones');
+    const txJson = await txRes.json();
+    // Load income
+    const incRes  = await fetch(url + '?sheet=Ingresos');
+    const incJson = await incRes.json();
+    // Load config
+    const cfgRes  = await fetch(url + '?sheet=Config');
+    const cfgJson = await cfgRes.json();
+
+    // Parse config
+    if (cfgJson.ok && cfgJson.data.length > 1) {
+      cfgJson.data.slice(1).forEach(row => {
+        if (row[0] === 'emergencyFund') state.emergencyFund = parseFloat(row[1]) || state.emergencyFund;
+        if (row[0] === 'emergencyGoal') state.emergencyGoal = parseFloat(row[1]) || state.emergencyGoal;
+      });
+    }
+
+    // Parse transactions — only if Sheets has data
+    if (txJson.ok && txJson.data.length > 1) {
+      state.data = {}; // clear local data before loading from Sheets
+      txJson.data.slice(1).forEach(row => {
+        if (!row[0]) return;
+        const key = row[0];
+        if (!state.data[key]) state.data[key] = { income:0, extras:[], transactions:[] };
+        state.data[key].transactions.push({
+          id:      row[6] || Date.now() + Math.random(),
+          date:    row[1] || '',
+          desc:    row[2] || '',
+          bucket:  row[3] || '',
+          account: row[4] || '',
+          amount:  parseFloat(row[5]) || 0,
+          nextMonth: false,
+          notes:   row[7] || '',
+        });
+      });
+    }
+
+    // Parse income
+    if (incJson.ok && incJson.data.length > 1) {
+      incJson.data.slice(1).forEach(row => {
+        if (!row[0]) return;
+        const key = row[0];
+        if (!state.data[key]) state.data[key] = { income:0, extras:[], transactions:[] };
+        state.data[key].income = parseFloat(row[1]) || 0;
+        try { state.data[key].extras = JSON.parse(row[2] || '[]'); } catch(e) { state.data[key].extras = []; }
+      });
+    }
+
+    save();
+    setSyncStatus('ok');
+    return true;
+  } catch(e) {
+    setSyncStatus('err');
+    return false;
+  }
 }
 
 async function testConnection() {
@@ -885,11 +974,15 @@ async function testConnection() {
   const el = document.getElementById('conn-status');
   el.innerHTML = '<div class="connection-status ok">⏳ Probando conexión...</div>';
   try {
-    await fetch(url + '?sheet=Config', { mode:'no-cors' });
+    const res = await fetch(url + '?sheet=Config');
+    const json = await res.json();
+    if (!json.ok) throw new Error('Script error');
     state.sheetsUrl = url;
-    save();
-    el.innerHTML = '<div class="connection-status ok">✅ ¡Conectado! La app ya sincroniza con tu Google Sheet.</div>';
-    setTimeout(() => { hideSetup(); }, 1500);
+    localStorage.setItem('mf_state', JSON.stringify(state));
+    el.innerHTML = '<div class="connection-status ok">✅ ¡Conectado! Cargando tus datos...</div>';
+    // Load existing data from Sheets
+    await loadFromSheets(url);
+    setTimeout(() => { hideSetup(); renderAll(); }, 800);
   } catch(e) {
     el.innerHTML = '<div class="connection-status err">❌ No se pudo conectar. Verifica la URL y los permisos.</div>';
   }
@@ -1766,23 +1859,43 @@ function renderAll() {
 // ══════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════
-load();
+async function init() {
+  load(); // load localStorage first (gets sheetsUrl)
 
-// Show setup if no sheets URL configured
-if (!state.sheetsUrl) {
-  showSetup();
-} else {
+  if (!state.sheetsUrl) {
+    showSetup();
+    renderAll();
+    return;
+  }
+
+  // Show sync bar and load from Sheets
   document.getElementById('sync-bar').style.display = 'flex';
+  setSyncStatus('syncing');
+
+  // Show loading state
+  document.getElementById('dash-insight').innerHTML = 'Cargando datos desde Google Sheets...';
+
+  await loadFromSheets(state.sheetsUrl);
+
+  // Set month nav
+  const label = MONTHS[state.currentMonth] + ' ' + state.currentYear;
+  document.getElementById('month-display').textContent = label;
+  document.getElementById('analysis-month').textContent = label;
+  document.getElementById('credit-month-display').textContent = label;
+  const y = String(state.currentYear).slice(2);
+  document.getElementById('dash-title').innerHTML = MONTHS[state.currentMonth] + ` <span>'${y}</span>`;
+
+  renderAll();
 }
 
-// Set month nav
+// Set month nav immediately so UI doesn't look broken while loading
 const label = MONTHS[state.currentMonth] + ' ' + state.currentYear;
 document.getElementById('month-display').textContent = label;
 document.getElementById('analysis-month').textContent = label;
 const y = String(state.currentYear).slice(2);
 document.getElementById('dash-title').innerHTML = MONTHS[state.currentMonth] + ` <span>'${y}</span>`;
 
-renderAll();
+init();
 </script>
 </body>
 </html>
