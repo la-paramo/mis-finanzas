@@ -280,9 +280,7 @@ body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; o
     <div class="step-num">Paso 2 de 4</div>
     <div class="step-title">Agrega el Apps Script</div>
     <div class="step-body">En tu Sheet, ve a <code>Extensiones → Apps Script</code>. Borra todo el código que aparece y pega esto:</div>
-    <div class="code-block" id="apps-script-code">const SHEET_ID = SpreadsheetApp.getActiveSpreadsheet().getId();
-
-function doPost(e) {
+    <div class="code-block" id="apps-script-code">function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -290,17 +288,20 @@ function doPost(e) {
     if (data.action === 'append') {
       sheet.appendRow(data.row);
     } else if (data.action === 'clear_append') {
-      const range = sheet.getRange(data.range);
-      range.clearContent();
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= data.startRow) {
+        sheet.getRange(data.startRow, 1, lastRow - data.startRow + 1, 10).clearContent();
+      }
       if (data.rows && data.rows.length > 0) {
-        sheet.getRange(data.startRow, 1, data.rows.length, data.rows[0].length)
-          .setValues(data.rows);
+        sheet.getRange(data.startRow, 1, data.rows.length, data.rows[0].length).setValues(data.rows);
       }
     }
-    return ContentService.createTextOutput(JSON.stringify({ok:true}))
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:true}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message}))
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:false,error:err.message}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -308,12 +309,20 @@ function doPost(e) {
 function doGet(e) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(e.parameter.sheet);
+    const sheetName = e.parameter.sheet;
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ok:false,error:'Sheet not found: ' + sheetName}))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     const data = sheet.getDataRange().getValues();
-    return ContentService.createTextOutput(JSON.stringify({ok:true,data:data}))
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:true, data:data}))
       .setMimeType(ContentService.MimeType.JSON);
   } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message}))
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:false,error:err.message}))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }</div>
