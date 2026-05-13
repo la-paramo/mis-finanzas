@@ -388,10 +388,26 @@ function doGet(e) {
   <div class="income-banner">
     <div class="ib-left">
       <div class="ib-label">Ingresos del mes</div>
-      <div class="ib-amount" id="ib-amount">$10,000,000</div>
-      <div class="ib-extra" id="ib-extra">Base · sin extras</div>
+      <div class="ib-amount" id="ib-amount">$0</div>
+      <div class="ib-extra" id="ib-extra">Sin ingresos registrados</div>
     </div>
     <button class="ib-edit" onclick="openIncomeModal()">Editar</button>
+  </div>
+
+  <!-- Accounts strip -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:20px;">
+    <div style="background:var(--surface);padding:12px 14px;cursor:pointer;" onclick="openTransferModal('debito')">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;">💳 Débito</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;" id="bal-debito">$0</div>
+    </div>
+    <div style="background:var(--surface);padding:12px 14px;cursor:pointer;" onclick="openTransferModal('efectivo')">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;">💵 Efectivo</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;" id="bal-efectivo">$0</div>
+    </div>
+    <div style="background:var(--surface);padding:12px 14px;cursor:pointer;" onclick="openTransferModal('nequi')">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:4px;">📲 Nequi</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;" id="bal-nequi">$0</div>
+    </div>
   </div>
 
   <div class="summary-strip">
@@ -532,7 +548,20 @@ function doGet(e) {
   </div>
 
   <div class="section">
-    <div class="sec-head"><h2>Exportar informe del mes</h2></div>
+    <div class="sec-head"><h2>Gastos del formulario (efectivo/Nequi)</h2></div>
+    <div class="import-zone" onclick="document.getElementById('csv-form').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      <p><strong>Subir CSV del Google Form</strong><br>Descarga desde tu Sheet → pestaña "Respuestas de formulario 1"</p>
+    </div>
+    <input type="file" id="csv-form" accept=".csv" style="display:none" onchange="importCSV(this,'form')">
+    <div class="tag-row"><div class="itag">🕐 marca temporal</div><div class="itag">💰 monto</div><div class="itag">📝 descripción</div><div class="itag">🏷️ categoría</div><div class="itag">💳 cuenta</div></div>
+    <div class="import-status">
+      <div><div class="is-name">Google Form</div><div class="is-sub" id="form-status">Sin importar aún</div></div>
+      <div class="badge pend" id="form-badge">Pendiente</div>
+    </div>
+  </div>
+
+  <div class="section">
     <button class="btn-primary" style="background:var(--surface);color:var(--text);border:1px solid var(--border);margin-bottom:8px;" onclick="exportCSV()">
       📥 Descargar CSV del mes actual
     </button>
@@ -642,6 +671,32 @@ function doGet(e) {
   </button>
 </nav>
 
+<!-- ── MODAL: TRANSFER ── -->
+<div class="overlay" id="modal-transfer" onclick="closeModal('modal-transfer',event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3 id="transfer-title">Transferencia</h3>
+    <div class="form-field">
+      <label class="form-label">Tipo</label>
+      <div class="pills" id="transfer-type-pills">
+        <div class="pill sel" onclick="selPill(this,'transfer-type-pills')">Retiro a efectivo</div>
+        <div class="pill" onclick="selPill(this,'transfer-type-pills')">Retiro a Nequi</div>
+        <div class="pill" onclick="selPill(this,'transfer-type-pills')">Ajuste manual</div>
+      </div>
+    </div>
+    <div class="form-field">
+      <label class="form-label">Monto COP</label>
+      <input type="number" class="form-input" id="t-amount" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Nota (opcional)</label>
+      <input type="text" class="form-input" id="t-note" placeholder="Ej: retiro ATM, mercado...">
+    </div>
+    <button class="btn-primary" onclick="saveTransfer()">Registrar</button>
+    <button class="btn-secondary" onclick="closeModal('modal-transfer')">Cancelar</button>
+  </div>
+</div>
+
 <!-- ── MODAL: EXPENSE ── -->
 <div class="overlay" id="modal-expense" onclick="closeModal('modal-expense',event)">
   <div class="modal">
@@ -687,20 +742,28 @@ function doGet(e) {
   <div class="modal">
     <div class="modal-handle"></div>
     <h3>Ingresos de <span id="income-modal-month">mayo</span></h3>
-    <div class="form-field">
-      <label class="form-label">Salario base (ya descontados viáticos y seguridad social)</label>
-      <input type="number" class="form-input" id="i-salary" placeholder="10000000" inputmode="numeric">
+    <div id="income-list" style="margin-bottom:16px;"></div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px;">Agregar ingreso</div>
+      <div class="form-field">
+        <label class="form-label">Descripción</label>
+        <input type="text" class="form-input" id="i-desc" placeholder="Salario, freelance, devolución...">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Monto COP</label>
+        <input type="number" class="form-input" id="i-amount" placeholder="0" inputmode="numeric">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Cuenta que recibe</label>
+        <div class="pills" id="i-account-pills">
+          <div class="pill sel" onclick="selPill(this,'i-account-pills')">💳 Débito</div>
+          <div class="pill" onclick="selPill(this,'i-account-pills')">💵 Efectivo</div>
+          <div class="pill" onclick="selPill(this,'i-account-pills')">📲 Nequi</div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="addIncome()" style="margin-top:4px;">+ Agregar</button>
     </div>
-    <div class="form-field">
-      <label class="form-label">Ingresos extra (opcional)</label>
-      <input type="number" class="form-input" id="i-extra" placeholder="0" inputmode="numeric">
-    </div>
-    <div class="form-field">
-      <label class="form-label">Descripción del extra</label>
-      <input type="text" class="form-input" id="i-extra-desc" placeholder="Freelance, bono, etc.">
-    </div>
-    <button class="btn-primary" onclick="saveIncome()">Guardar ingresos</button>
-    <button class="btn-secondary" onclick="closeModal('modal-income')">Cancelar</button>
+    <button class="btn-secondary" onclick="closeModal('modal-income')">Listo</button>
   </div>
 </div>
 
@@ -832,7 +895,12 @@ let state = {
   sheetsUrl: '',
   currentMonth: 4, // 0-indexed, May=4
   currentYear: 2026,
-  data: {}, // key: "YYYY-MM" → { income, extras, transactions }
+  data: {}, // key: "YYYY-MM" → { incomes:[], transactions:[] }
+  accounts: {
+    debito:   { name:'Débito',   emoji:'💳', balance:0 },
+    efectivo: { name:'Efectivo', emoji:'💵', balance:0 },
+    nequi:    { name:'Nequi',    emoji:'📲', balance:0 },
+  },
   emergencyFund: 14000000,
   emergencyGoal: 20000000,
 };
@@ -841,13 +909,20 @@ function monthKey(y, m) { return `${y}-${String(m+1).padStart(2,'0')}`; }
 function curKey() { return monthKey(state.currentYear, state.currentMonth); }
 function curData() {
   if (!state.data[curKey()]) {
-    state.data[curKey()] = { income:0, extras:[], transactions:[] };
+    state.data[curKey()] = { incomes:[], transactions:[] };
   }
-  return state.data[curKey()];
+  // Migrate old format
+  const d = state.data[curKey()];
+  if (d.income !== undefined && !d.incomes) {
+    d.incomes = d.income > 0 ? [{ id: Date.now(), amount: d.income, desc: 'Salario', date: '1' }] : [];
+    if (d.extras) d.extras.forEach(e => d.incomes.push({ id: Date.now()+Math.random(), amount: e.amount, desc: e.desc, date: '1' }));
+    delete d.income; delete d.extras;
+  }
+  if (!d.incomes) d.incomes = [];
+  return d;
 }
 function totalIncome() {
-  const d = curData();
-  return d.income + d.extras.reduce((s,e) => s + e.amount, 0);
+  return curData().incomes.reduce((s,i) => s + i.amount, 0);
 }
 
 // ══════════════════════════════════════════════
@@ -943,7 +1018,7 @@ async function loadFromSheets(url) {
       txJson.data.slice(1).forEach(row => {
         if (!row[0]) return;
         const key = row[0];
-        if (!state.data[key]) state.data[key] = { income:0, extras:[], transactions:[] };
+        if (!state.data[key]) state.data[key] = { incomes:[], transactions:[] };
         state.data[key].transactions.push({
           id:      row[6] || Date.now() + Math.random(),
           date:    row[1] || '',
@@ -962,7 +1037,7 @@ async function loadFromSheets(url) {
       incJson.data.slice(1).forEach(row => {
         if (!row[0]) return;
         const key = row[0];
-        if (!state.data[key]) state.data[key] = { income:0, extras:[], transactions:[] };
+        if (!state.data[key]) state.data[key] = { incomes:[], transactions:[] };
         state.data[key].income = parseFloat(row[1]) || 0;
         try { state.data[key].extras = JSON.parse(row[2] || '[]'); } catch(e) { state.data[key].extras = []; }
       });
@@ -1142,10 +1217,15 @@ function renderDashboard() {
   const base = totalIncome();
 
   // Income banner
-  document.getElementById('ib-amount').textContent = fmtFull(base);
-  const extras = d.extras.length > 0 ? `+${fmt(d.extras.reduce((s,e)=>s+e.amount,0))} extras` : 'Sin ingresos extra';
-  document.getElementById('ib-extra').textContent = d.income > 0 ? extras : 'Sin ingresos registrados';
+  document.getElementById('ib-amount').textContent = base > 0 ? fmtFull(base) : '$0';
+  const incCount = d.incomes ? d.incomes.length : 0;
+  document.getElementById('ib-extra').textContent = incCount > 0
+    ? `${incCount} ingreso${incCount > 1 ? 's' : ''} registrado${incCount > 1 ? 's' : ''}`
+    : 'Sin ingresos registrados';
   document.getElementById('income-modal-month').textContent = MONTHS[state.currentMonth].toLowerCase();
+
+  // Account balances
+  updateAccountBalances();
 
   // Totals
   // Débito: all non-LifeMiles transactions from current month
@@ -1301,19 +1381,21 @@ function renderBuckets(base, curTx, totalSpent) {
     </div>`;
   }).join('');
 
-  // Bank charges observation card
-  if (bankTotal > 0) {
+  // Bank charges observation card — show if ANY exist in current month transactions
+  const bankTxAll = curTx.filter(tx => tx.bucket === BANK_CHARGES_KEY);
+  const bankTotalAll = bankTxAll.reduce((s,tx) => s+tx.amount, 0);
+  if (bankTotalAll > 0) {
     html += `
     <div class="bucket-card" style="border-left:3px solid #7A7468;opacity:0.8;">
       <div class="bc-top">
         <div class="bc-emoji">🏦</div>
         <div class="bc-name">Cargos bancarios</div>
         <div class="bc-right">
-          <div class="bc-spent" style="color:#7A7468;">${fmt(bankTotal)}</div>
+          <div class="bc-spent" style="color:#7A7468;">${fmt(bankTotalAll)}</div>
           <div class="bc-budget">solo observación</div>
         </div>
       </div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:6px;">${bankTx.length} cargos este mes · 4x1000, comisiones, intereses</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:6px;">${bankTxAll.length} cargos este mes · 4x1000, comisiones, intereses</div>
     </div>`;
   }
 
@@ -1490,7 +1572,7 @@ function renderAnalysis() {
   document.getElementById('emergency-badge').textContent = efPct + '%';
   document.getElementById('emergency-bar').style.width = efPct + '%';
   const efLeft = state.emergencyGoal - state.emergencyFund;
-  const monthsLeft = base > 0 ? Math.ceil(efLeft/(base*0.10)) : '?';
+  const monthsLeft = (base > 0 && base * 0.10 > 0) ? Math.ceil(efLeft/(base*0.10)) : '?';
   document.getElementById('emergency-sub').textContent = `Faltan ${fmt(efLeft)} · ~${monthsLeft} meses al ritmo actual`;
 
   // ── Insights ──
@@ -1591,21 +1673,142 @@ function saveExpense() {
   renderAll();
 }
 
-function saveIncome() {
-  const salary = parseFloat(document.getElementById('i-salary').value) || 0;
-  const extra = parseFloat(document.getElementById('i-extra').value) || 0;
-  const extraDesc = document.getElementById('i-extra-desc').value.trim();
+function openIncomeModal() {
+  document.getElementById('income-modal-month').textContent = MONTHS[state.currentMonth].toLowerCase();
+  renderIncomeList();
+  document.getElementById('modal-income').classList.add('open');
+}
+
+function renderIncomeList() {
+  const d = curData();
+  const el = document.getElementById('income-list');
+  if (!d.incomes || d.incomes.length === 0) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:8px 0;">Sin ingresos registrados aún.</div>';
+    return;
+  }
+  const total = d.incomes.reduce((s,i) => s+i.amount, 0);
+  el.innerHTML = `
+    <div style="margin-bottom:10px;">
+      ${d.incomes.map(inc => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:500;">${inc.desc}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-dim);">${inc.account || 'Débito'}</div>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--sage);">+${fmt(inc.amount)}</div>
+          <button onclick="removeIncome('${inc.id}')" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;padding:0 4px;">×</button>
+        </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-family:'JetBrains Mono',monospace;font-size:11px;">
+        <span style="color:var(--text-dim);">Total</span>
+        <span style="color:var(--sage);font-weight:500;">${fmt(total)}</span>
+      </div>
+    </div>`;
+}
+
+function addIncome() {
+  const amount = parseFloat(document.getElementById('i-amount').value) || 0;
+  const desc   = document.getElementById('i-desc').value.trim() || 'Ingreso';
+  const accountPill = document.querySelector('#i-account-pills .pill.sel');
+  const account = accountPill ? accountPill.textContent.trim() : '💳 Débito';
+  if (!amount) return;
 
   const d = curData();
-  d.income = salary;
-  if (extra > 0) {
-    d.extras = [{ amount: extra, desc: extraDesc || 'Ingreso extra' }];
+  if (!d.incomes) d.incomes = [];
+  d.incomes.push({ id: Date.now() + Math.random(), amount, desc, account, date: new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}) });
+
+  // Add to account balance
+  const accKey = account.includes('Efectivo') ? 'efectivo' : account.includes('Nequi') ? 'nequi' : 'debito';
+  state.accounts[accKey].balance += amount;
+
+  document.getElementById('i-amount').value = '';
+  document.getElementById('i-desc').value = '';
+  save();
+  renderIncomeList();
+  renderAll();
+}
+
+function removeIncome(id) {
+  const d = curData();
+  const inc = d.incomes.find(i => String(i.id) === String(id));
+  if (inc) {
+    const accKey = (inc.account||'').includes('Efectivo') ? 'efectivo' : (inc.account||'').includes('Nequi') ? 'nequi' : 'debito';
+    state.accounts[accKey].balance = Math.max(0, state.accounts[accKey].balance - inc.amount);
+    d.incomes = d.incomes.filter(i => String(i.id) !== String(id));
+  }
+  save();
+  renderIncomeList();
+  renderAll();
+}
+
+// ── ACCOUNT BALANCES ─────────────────────────────────────────────────
+function updateAccountBalances() {
+  document.getElementById('bal-debito').textContent   = fmt(state.accounts.debito.balance);
+  document.getElementById('bal-efectivo').textContent = fmt(state.accounts.efectivo.balance);
+  document.getElementById('bal-nequi').textContent    = fmt(state.accounts.nequi.balance);
+}
+
+let transferFromAccount = 'debito';
+
+function openTransferModal(fromAccount) {
+  transferFromAccount = fromAccount;
+  const acc = state.accounts[fromAccount];
+  document.getElementById('transfer-title').textContent = `${acc.emoji} ${acc.name} — mover dinero`;
+  // Update pill options based on source account
+  const pills = document.getElementById('transfer-type-pills');
+  if (fromAccount === 'debito') {
+    pills.innerHTML = `
+      <div class="pill sel" onclick="selPill(this,'transfer-type-pills')">Retiro → Efectivo</div>
+      <div class="pill" onclick="selPill(this,'transfer-type-pills')">Retiro → Nequi</div>
+      <div class="pill" onclick="selPill(this,'transfer-type-pills')">Ajuste manual</div>`;
   } else {
-    d.extras = [];
+    pills.innerHTML = `
+      <div class="pill sel" onclick="selPill(this,'transfer-type-pills')">Gasto registrado</div>
+      <div class="pill" onclick="selPill(this,'transfer-type-pills')">Devolver a Débito</div>
+      <div class="pill" onclick="selPill(this,'transfer-type-pills')">Ajuste manual</div>`;
+  }
+  document.getElementById('t-amount').value = '';
+  document.getElementById('t-note').value = '';
+  document.getElementById('modal-transfer').classList.add('open');
+}
+
+function saveTransfer() {
+  const amount = parseFloat(document.getElementById('t-amount').value) || 0;
+  const note   = document.getElementById('t-note').value.trim();
+  const type   = document.querySelector('#transfer-type-pills .pill.sel')?.textContent.trim() || '';
+  if (!amount) return;
+
+  const acc = state.accounts[transferFromAccount];
+
+  if (type.includes('Efectivo')) {
+    state.accounts[transferFromAccount].balance -= amount;
+    state.accounts.efectivo.balance += amount;
+  } else if (type.includes('Nequi')) {
+    state.accounts[transferFromAccount].balance -= amount;
+    state.accounts.nequi.balance += amount;
+  } else if (type.includes('Débito') || type.includes('Debito')) {
+    state.accounts[transferFromAccount].balance -= amount;
+    state.accounts.debito.balance += amount;
+  } else if (type.includes('Ajuste')) {
+    // Manual adjustment — ask +/-
+    state.accounts[transferFromAccount].balance += amount;
+  } else {
+    // Gasto registrado — just reduce balance
+    state.accounts[transferFromAccount].balance -= amount;
   }
 
+  // Record as transaction for history
+  const accName = acc.emoji + ' ' + acc.name;
+  curData().transactions.push({
+    id: Date.now() + Math.random(),
+    date: new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),
+    desc: note || type,
+    bucket: type.includes('Efectivo') || type.includes('Nequi') || type.includes('Débito') ? '↔️ Transferencia' : '🏠 Necesidades Básicas',
+    account: accName,
+    amount, nextMonth: false, notes: type
+  });
+
   save();
-  closeModal('modal-income');
+  closeModal('modal-transfer');
   renderAll();
 }
 
@@ -1620,12 +1823,74 @@ function importCSV(input, type) {
     const text = e.target.result;
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     let imported = 0;
-    let skipped = 0;
 
-    // SKIP ROWS for each type
-    // Débito: skip positives (abonos/intereses on savings), skip transfer rows
-    // Crédito: skip negative rows (abonos a tarjeta)
-    const DEBITO_SKIP_POSITIVES = true; // skip positive = income rows
+    if (type === 'form') {
+      // GOOGLE FORM CSV — columns: Marca temporal, Monto, Descripción, Categoría, Cuenta
+      const monthNames2 = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      let lastTxMonth = state.currentMonth;
+      let lastTxYear = state.currentYear;
+
+      lines.slice(1).forEach(line => {
+        const cols = parseCSVLine(line);
+        if (cols.length < 4) return;
+        const dateRaw = cols[0]?.trim() || '';
+        const valRaw  = cols[1]?.trim() || '';
+        const desc    = cols[2]?.trim() || '';
+        const bucket  = cols[3]?.trim() || '';
+        const account = cols[4]?.trim() || 'Efectivo';
+
+        let numStr = valRaw.replace(/"/g,'').trim();
+        numStr = numStr.replace(/[^0-9.]/g,'');
+        const dotParts = numStr.split('.');
+        if (dotParts.length > 2) numStr = dotParts.slice(0,-1).join('') + '.' + dotParts[dotParts.length-1];
+        const amount = Math.abs(parseFloat(numStr));
+        if (!amount || !desc) return;
+
+        const dateParts = dateRaw.split(' ')[0]?.split('/') || [];
+        const dayNum2  = parseInt(dateParts[0]) || 1;
+        const monNum2  = parseInt(dateParts[1]) || (state.currentMonth + 1);
+        const yearNum2 = parseInt(dateParts[2]) || state.currentYear;
+        const dateLabel2 = `${dayNum2} ${monthNames2[monNum2] || monNum2}`;
+
+        const txKey3 = monthKey(yearNum2, monNum2 - 1);
+        if (!state.data[txKey3]) state.data[txKey3] = { incomes:[], transactions:[] };
+
+        state.data[txKey3].transactions.push({
+          id: Date.now() + Math.random(),
+          date: dateLabel2, desc, bucket, account, amount,
+          nextMonth: false, notes: 'form'
+        });
+
+        const accKey2 = account.includes('Efectivo') ? 'efectivo' : account.includes('Nequi') ? 'nequi' : 'debito';
+        state.accounts[accKey2].balance = Math.max(0, state.accounts[accKey2].balance - amount);
+
+        imported++;
+        lastTxMonth = monNum2 - 1;
+        lastTxYear = yearNum2;
+      });
+
+      save();
+      const sEl = document.getElementById('form-status');
+      const bEl = document.getElementById('form-badge');
+      const now2 = new Date().toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      if (sEl) sEl.textContent = `${imported} importadas · ${now2}`;
+      if (bEl) { bEl.textContent = '✓ Importado'; bEl.className = 'badge ok'; }
+
+      if (lastTxMonth !== state.currentMonth || lastTxYear !== state.currentYear) {
+        state.currentMonth = lastTxMonth;
+        state.currentYear = lastTxYear;
+        const label = MONTHS[state.currentMonth] + ' ' + state.currentYear;
+        document.querySelectorAll('#month-display,#analysis-month,#credit-month-display').forEach(el => { if(el) el.textContent = label; });
+        const y = String(state.currentYear).slice(2);
+        const h = document.getElementById('dash-title');
+        if (h) h.innerHTML = MONTHS[state.currentMonth] + ` <span>'${y}</span>`;
+      }
+      renderAll();
+      return;
+    }
+
+    // BANCOLOMBIA / LIFEMILES CSV
+    let skipped = 0;
     const DEBITO_SKIP_KEYWORDS = ['abono intereses ahorros','transferencia cta suc virtual','abono a tarjeta'];
     const CREDITO_SKIP = ['abono sucursal'];
     let lastTxMonth = state.currentMonth;
@@ -1642,17 +1907,12 @@ function importCSV(input, type) {
 
       if (!desc || !valRaw) return;
 
-      // Parse amount — handle formats like "-31,709.75", "-126.83", "5.93"
-      // Step 1: remove quotes if any
       let numStr = valRaw.replace(/"/g, '').trim();
-      // Step 2: detect negative
       const isNegative = numStr.startsWith('-');
-      // Step 3: remove everything except digits and decimal point
       numStr = numStr.replace(/[^0-9.]/g, '');
-      // Step 4: handle multiple dots (take last segment as decimals)
-      const dotParts = numStr.split('.');
-      if (dotParts.length > 2) {
-        numStr = dotParts.slice(0, -1).join('') + '.' + dotParts[dotParts.length - 1];
+      const dotParts2 = numStr.split('.');
+      if (dotParts2.length > 2) {
+        numStr = dotParts2.slice(0, -1).join('') + '.' + dotParts2[dotParts2.length - 1];
       }
       const rawNum = isNegative ? -parseFloat(numStr) : parseFloat(numStr);
       if (isNaN(rawNum) || rawNum === 0) return;
@@ -1660,24 +1920,19 @@ function importCSV(input, type) {
       const descLower = desc.toLowerCase();
 
       if (type === 'debito') {
-        // Skip income rows (positive values)
         if (rawNum > 0) { skipped++; return; }
-        // Skip internal transfer rows
         if (DEBITO_SKIP_KEYWORDS.some(kw => descLower.includes(kw))) { skipped++; return; }
 
-        // Parse date: format D/MM or DD/MM → extract day and month
         const dateParts = dateRaw.split('/');
         const dayNum = parseInt(dateParts[0]);
         const monNum = dateParts[1] ? parseInt(dateParts[1]) : state.currentMonth + 1;
         const monthNames = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         const dateLabel = `${dayNum} ${monthNames[monNum] || monNum}`;
 
-        // Store transactions in the month they belong to (from their date)
         const txYear = (monNum > state.currentMonth + 1 && state.currentMonth < 3)
-          ? state.currentYear - 1  // e.g. Dec CSV loaded in Jan/Feb
-          : state.currentYear;
-        const txKey = monthKey(txYear, monNum - 1); // monNum is 1-indexed, monthKey expects 0-indexed
-        if (!state.data[txKey]) state.data[txKey] = { income:0, extras:[], transactions:[] };
+          ? state.currentYear - 1 : state.currentYear;
+        const txKey = monthKey(txYear, monNum - 1);
+        if (!state.data[txKey]) state.data[txKey] = { incomes:[], transactions:[] };
 
         const amount = Math.abs(rawNum);
         const bucket = autoCategorize(descLower, notes);
@@ -1689,15 +1944,14 @@ function importCSV(input, type) {
           nextMonth: false, notes
         });
         imported++;
-        // Track which month to navigate to after import
-        lastTxMonth = monNum - 1; // 0-indexed
+        lastTxMonth = monNum - 1;
         lastTxYear = txYear;
 
       } else {
         // CRÉDITO — LifeMiles
-        if (rawNum < 0) { skipped++; return; } // negative = abono/pago, skip
+        if (rawNum < 0) { skipped++; return; }
         if (CREDITO_SKIP.some(kw => descLower.includes(kw))) { skipped++; return; }
-        // Parse date: format M/D/YYYY
+
         const parts = dateRaw.split('/');
         const monthNames = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         let dateLabel = dateRaw;
@@ -1706,28 +1960,11 @@ function importCSV(input, type) {
         }
 
         const amount = Math.abs(rawNum);
-        // Use notes for bucket if provided, else auto-categorize
         const bucket = notes ? matchNoteToCategory(notes) : autoCategorize(descLower, notes);
-
-        // Determine payment month based on transaction date
-        // Rule: a transaction from month X gets paid on the 15th of month X+1
-        // So if txMonth < currentMonth → was paid in a previous cycle → assign to txMonth's data as "current" (already paid)
-        // If txMonth === currentMonth → accumulating now → assign to txMonth's data as "nextMonth" (will pay next 15th)
-        const txMonth = parts.length === 3 ? parseInt(parts[0]) : (state.currentMonth + 1); // 1-indexed
-        const txYear2 = state.currentYear; // credit CSV is always current year
-
-        // Store in the month the transaction occurred (txMonth)
-        const txKey2 = monthKey(txYear2, txMonth - 1); // convert to 0-indexed
-        if (!state.data[txKey2]) state.data[txKey2] = { income:0, extras:[], transactions:[] };
-
-        // isNextMonth = true means "this tx is accumulating, will be paid next 15th"
-        // isNextMonth = false means "this tx was already paid this 15th"
-        // A tx from month X: when you're IN month X, it's accumulating (nextMonth=true)
-        // When you're IN month X+1, it's what you just paid (nextMonth=false)
-        // So we store it relative to its own month: always nextMonth=true
-        // The credit page then reads: current month's nextMonth=true → "acumulando para mes siguiente"
-        // And previous month's nextMonth=true → "pagado el 15 de este mes"
-        const isNextMonth = true; // always accumulating relative to the month it occurred
+        const txMonth = parts.length === 3 ? parseInt(parts[0]) : (state.currentMonth + 1);
+        const txYear2 = state.currentYear;
+        const txKey2 = monthKey(txYear2, txMonth - 1);
+        if (!state.data[txKey2]) state.data[txKey2] = { incomes:[], transactions:[] };
 
         state.data[txKey2].transactions.push({
           id: Date.now() + Math.random(),
@@ -1747,7 +1984,6 @@ function importCSV(input, type) {
     badgeEl.textContent  = '✓ Importado';
     badgeEl.className    = 'badge ok';
 
-    // For debit: auto-navigate to the month of the CSV
     if (type === 'debito' && (lastTxMonth !== state.currentMonth || lastTxYear !== state.currentYear)) {
       state.currentMonth = lastTxMonth;
       state.currentYear = lastTxYear;
