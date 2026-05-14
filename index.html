@@ -583,11 +583,33 @@ async function loadSheets(url){
       if(r[0]==='efGoal') S.efGoal=parseFloat(r[1])||S.efGoal;
       if(r[0]==='accs'){try{S.accounts={...S.accounts,...JSON.parse(r[1])};}catch(e){}}
     });
+
+    // Normalize key: convert any date format to YYYY-MM
+    function normKey(k){
+      if(!k) return null;
+      const s=String(k).trim();
+      // Already correct format
+      if(/^\d{4}-\d{2}$/.test(s)) return s;
+      // ISO timestamp: 2026-05-01T05:00:00.000Z
+      if(s.includes('T')) return s.slice(0,7);
+      // Date object converted to string
+      try{ const d=new Date(s); if(!isNaN(d)) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }catch(e){}
+      return null;
+    }
+
     if(tj.ok&&tj.data.length>1){
       S.data={};
-      tj.data.slice(1).forEach(r=>{if(!r[0])return;const k=r[0];if(!S.data[k])S.data[k]={incomes:[],transactions:[]};S.data[k].transactions.push({id:r[6]||Date.now()+Math.random(),date:r[1],desc:r[2],bucket:r[3],account:r[4],amount:parseFloat(r[5])||0,nextMonth:false,notes:r[7]||''});});
+      tj.data.slice(1).forEach(r=>{
+        const k=normKey(r[0]); if(!k) return;
+        if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
+        S.data[k].transactions.push({id:r[6]||Date.now()+Math.random(),date:r[1],desc:r[2],bucket:r[3],account:r[4],amount:parseFloat(r[5])||0,nextMonth:false,notes:r[7]||''});
+      });
     }
-    if(ij.ok&&ij.data.length>1) ij.data.slice(1).forEach(r=>{if(!r[0])return;const k=r[0];if(!S.data[k])S.data[k]={incomes:[],transactions:[]};S.data[k].incomes.push({id:r[4]||Date.now()+Math.random(),amount:parseFloat(r[1])||0,desc:r[2],account:r[3]||''});});
+    if(ij.ok&&ij.data.length>1) ij.data.slice(1).forEach(r=>{
+      const k=normKey(r[0]); if(!k) return;
+      if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
+      S.data[k].incomes.push({id:r[4]||Date.now()+Math.random(),amount:parseFloat(r[1])||0,desc:r[2],account:r[3]||''});
+    });
     save(); setSS('ok'); return true;
   }catch(e){setSS('er');return false;}
 }
