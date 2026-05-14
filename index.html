@@ -552,14 +552,14 @@ function cdata(){
 const totInc=()=>cdata().incomes.reduce((s,i)=>s+i.amount,0);
 
 // ═══════ STORAGE ═══════
-function save(){try{localStorage.setItem('mf3',JSON.stringify(S));}catch(e){}if(S.sheetsUrl)sync();}
+function save(){try{calcAccounts();localStorage.setItem('mf3',JSON.stringify(S));}catch(e){}if(S.sheetsUrl)sync();}
 function loadLocal(){try{const s=localStorage.getItem('mf3');if(s)S={...S,...JSON.parse(s)};}catch(e){}}
 
 async function sync(){
   if(!S.sheetsUrl) return;
   setSS('ld');
   try{
-    const tx=[],inc=[],cfg=[['sheetsUrl',S.sheetsUrl],['ef',S.ef],['efGoal',S.efGoal],['accs',JSON.stringify(S.accounts)]];
+    const tx=[],inc=[],cfg=[['sheetsUrl',S.sheetsUrl],['ef',S.ef],['efGoal',S.efGoal]];
     Object.entries(S.data).forEach(([k,d])=>{
       (d.transactions||[]).forEach(t=>tx.push([String(k),String(t.date||''),String(t.desc||''),String(t.bucket||''),String(t.account||''),Number(t.amount||0),String(t.id||''),String(t.notes||'')]));
       (d.incomes||[]).forEach(i=>inc.push([String(k),Number(i.amount||0),String(i.desc||''),String(i.account||''),String(i.id||'')]));
@@ -573,6 +573,25 @@ async function sync(){
   }catch(e){setSS('er');}
 }
 
+function calcAccounts(){
+  const bal={debito:0,efectivo:0,nequi:0};
+  Object.values(S.data).forEach(d=>{
+    (d.incomes||[]).forEach(i=>{
+      const acc=i.account||'';
+      if(acc.includes('Efectivo')) bal.efectivo+=i.amount;
+      else if(acc.includes('Nequi')) bal.nequi+=i.amount;
+      else bal.debito+=i.amount;
+    });
+    (d.transactions||[]).forEach(t=>{
+      const acc=t.account||'';
+      if(acc==='Débito'||acc.includes('Débit')) bal.debito=Math.max(0,bal.debito-t.amount);
+      else if(acc==='Efectivo'||acc.includes('Efectiv')) bal.efectivo=Math.max(0,bal.efectivo-t.amount);
+      else if(acc==='Nequi'||acc.includes('Nequi')) bal.nequi=Math.max(0,bal.nequi-t.amount);
+      // LifeMiles doesn't affect cash balances
+    });
+  });
+  S.accounts=bal;
+}
 async function loadSheets(url){
   try{
     setSS('ld');
@@ -610,7 +629,7 @@ async function loadSheets(url){
       if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
       S.data[k].incomes.push({id:r[4]||Date.now()+Math.random(),amount:parseFloat(r[1])||0,desc:r[2],account:r[3]||''});
     });
-    save(); setSS('ok'); return true;
+    save(); calcAccounts(); setSS('ok'); return true;
   }catch(e){setSS('er');return false;}
 }
 
@@ -881,8 +900,6 @@ function saveExp(){
   const acc=document.querySelector('#eacc .pill.on')?.textContent.trim()||'Efectivo';
   if(!amt||!desc)return;
   cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc,bucket,account:acc,amount:amt,nextMonth:false,notes:''});
-  const ak=acc.includes('Efectivo')?'efectivo':acc.includes('Nequi')?'nequi':acc==='Débito'?'debito':null;
-  if(ak) S.accounts[ak]=Math.max(0,(S.accounts[ak]||0)-amt);
   document.getElementById('eamt').value='';document.getElementById('edesc').value='';
   cOverlay('modal-exp');save();renderAll();
 }
@@ -902,15 +919,13 @@ function addInc(){
   const acc=document.querySelector('#iacc .pill.on')?.textContent.trim()||'💳 Débito';
   if(!amt)return;
   cdata().incomes.push({id:Date.now()+Math.random(),amount:amt,desc,account:acc});
-  const ak=acc.includes('Efectivo')?'efectivo':acc.includes('Nequi')?'nequi':'debito';
-  S.accounts[ak]=(S.accounts[ak]||0)+amt;
   document.getElementById('iamt').value='';document.getElementById('idesc').value='';
   save();rIncList();renderAll();
 }
 
 function remInc(id){
   const d=cdata(),i=d.incomes.find(i=>String(i.id)===String(id));
-  if(i){const ak=(i.account||'').includes('Efectivo')?'efectivo':(i.account||'').includes('Nequi')?'nequi':'debito';S.accounts[ak]=Math.max(0,(S.accounts[ak]||0)-i.amount);d.incomes=d.incomes.filter(i=>String(i.id)!==String(id));}
+  if(i) d.incomes=d.incomes.filter(i=>String(i.id)!==String(id));
   save();rIncList();renderAll();
 }
 
@@ -932,13 +947,34 @@ function saveTr(){
   const note=document.getElementById('trnote').value.trim();
   const type=document.querySelector('#trtype .pill.on')?.textContent.trim()||'';
   if(!amt)return;
-  if(type.includes('Efectivo')){S.accounts[trFrom]=Math.max(0,(S.accounts[trFrom]||0)-amt);S.accounts.efectivo=(S.accounts.efectivo||0)+amt;}
-  else if(type.includes('Nequi')){S.accounts[trFrom]=Math.max(0,(S.accounts[trFrom]||0)-amt);S.accounts.nequi=(S.accounts.nequi||0)+amt;}
-  else if(type.includes('Débito')||type.includes('Debito')){S.accounts[trFrom]=Math.max(0,(S.accounts[trFrom]||0)-amt);S.accounts.debito=(S.accounts.debito||0)+amt;}
-  else if(type.includes('Ajuste +')||type.includes('Gasto')){S.accounts[trFrom]=Math.max(0,(S.accounts[trFrom]||0)-amt);}
-  else if(type.includes('Ajuste −')){S.accounts[trFrom]=(S.accounts[trFrom]||0)+amt;}
-  if(!type.startsWith('→')){const nm={debito:'💳 Débito',efectivo:'💵 Efectivo',nequi:'📲 Nequi'};cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||type,bucket:'↔️ Transferencia',account:nm[trFrom],amount:amt,nextMonth:false,notes:type});}
-  document.getElementById('modal-tr').classList.remove('on');save();renderAll();
+
+  const accNames={debito:'Débito',efectivo:'Efectivo',nequi:'Nequi'};
+  const from=accNames[trFrom];
+
+  // Record as a special transfer transaction so calcAccounts can handle it
+  if(type.includes('→ Efectivo')){
+    // Move from debito to efectivo: record as income in efectivo, expense in debito
+    cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||`Retiro → Efectivo`,bucket:'↔️ Transferencia',account:from,amount:amt,nextMonth:false,notes:'transfer-out'});
+    cdata().incomes.push({id:Date.now()+Math.random(),amount:amt,desc:note||`Retiro desde ${from}`,account:'💵 Efectivo'});
+  } else if(type.includes('→ Nequi')){
+    cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||`Retiro → Nequi`,bucket:'↔️ Transferencia',account:from,amount:amt,nextMonth:false,notes:'transfer-out'});
+    cdata().incomes.push({id:Date.now()+Math.random(),amount:amt,desc:note||`Retiro desde ${from}`,account:'📲 Nequi'});
+  } else if(type.includes('→ Débito')){
+    cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||`Devolución → Débito`,bucket:'↔️ Transferencia',account:from,amount:amt,nextMonth:false,notes:'transfer-out'});
+    cdata().incomes.push({id:Date.now()+Math.random(),amount:amt,desc:note||`Devolución desde ${from}`,account:'💳 Débito'});
+  } else if(type.includes('Ajuste +')){
+    // Add money to account
+    cdata().incomes.push({id:Date.now()+Math.random(),amount:amt,desc:note||`Ajuste + ${from}`,account:from.includes('Efectivo')?'💵 Efectivo':from.includes('Nequi')?'📲 Nequi':'💳 Débito'});
+  } else if(type.includes('Ajuste −')){
+    // Remove money from account
+    cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||`Ajuste − ${from}`,bucket:'↔️ Transferencia',account:from,amount:amt,nextMonth:false,notes:'adjustment'});
+  } else {
+    // Gasto registrado — expense from this account
+    cdata().transactions.push({id:Date.now()+Math.random(),date:new Date().toLocaleDateString('es-CO',{day:'numeric',month:'short'}),desc:note||'Gasto en efectivo',bucket:'',account:from,amount:amt,nextMonth:false,notes:''});
+  }
+
+  document.getElementById('modal-tr').classList.remove('on');
+  save();renderAll();
 }
 
 // ═══════ CSV IMPORT ═══════
