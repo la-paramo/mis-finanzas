@@ -700,7 +700,7 @@ function autoCat(dl,notes){
   for(const[k,v]of Object.entries(KW))if(dl.includes(k))return v;
   return '';
 }
-function pNum(raw){let s=raw.replace(/"/g,'').trim();const neg=s.startsWith('-');s=s.replace(/[^0-9.]/g,'');const p=s.split('.');if(p.length>2)s=p.slice(0,-1).join('')+'.'+p[p.length-1];const n=parseFloat(s);return neg?-n:n;}
+function pNum(raw){let s=raw.replace(/"/g,'').replace(/\$/g,'').trim();const neg=s.startsWith('-');s=s.replace(/[^0-9.]/g,'');const p=s.split('.');if(p.length>2)s=p.slice(0,-1).join('')+'.'+p[p.length-1];const n=parseFloat(s);return neg?-n:n;}
 function pCSV(line){const r=[];let c='',q=false;for(let i=0;i<line.length;i++){if(line[i]==='"')q=!q;else if(line[i]===','&&!q){r.push(c);c='';}else c+=line[i];}r.push(c);return r;}
 
 // ═══════ RENDER DASHBOARD ═══════
@@ -1030,10 +1030,16 @@ function impCSV(input,type){
       }else{
         if(rn<0)return;
         if(SKPC.some(kw=>dl.includes(kw)))return;
+        // Format: D/M/YYYY (día/mes/año)
         const ps=dr.split('/');let dl2=dr;
-        if(ps.length===3)dl2=`${parseInt(ps[1])} ${MN[parseInt(ps[0])]||ps[0]}`;
-        const tm=ps.length===3?parseInt(ps[0]):(S.month+1);
-        const k=mkey(S.year,tm-1);
+        let txDay=1,txMon=S.month+1,txYear=S.year;
+        if(ps.length===3){
+          txDay=parseInt(ps[0]);
+          txMon=parseInt(ps[1]);
+          txYear=parseInt(ps[2])||S.year;
+          dl2=`${txDay} ${MN[txMon]||txMon}`;
+        }
+        const k=mkey(txYear,txMon-1);
         if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
         S.data[k].transactions.push({id:Date.now()+Math.random(),date:dl2,desc,bucket:notes?autoCat('',notes):autoCat(dl,notes),account:'LifeMiles',amount:Math.abs(rn),nextMonth:false,notes});
         imp++;
