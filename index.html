@@ -381,9 +381,9 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
     <div id="pvrchart"></div></div>
   </div>
   <div class="sec"><div class="sech"><h2>Desglose de básicas</h2></div><div class="cwrap"><div id="bchart"></div></div></div>
-  <div class="sec"><div class="sech"><h2>Fondo de emergencia</h2></div>
+  <div class="sec"><div class="sech"><h2>Fondo de emergencia</h2><button onclick="oModal('modal-ef')">Editar</button></div>
     <div class="efcard">
-      <div class="eftop"><div><div class="efval" id="efval">$14.0M</div><div class="efsub2">de $20M meta</div></div><div class="badge pend" id="efbadge">70%</div></div>
+      <div class="eftop"><div><div class="efval" id="efval">$14.0M</div><div class="efsub2" id="efmeta">de $20M meta</div></div><div class="badge pend" id="efbadge">70%</div></div>
       <div class="pt" style="height:5px;margin-bottom:6px;"><div class="pf" id="efbar" style="width:70%;background:var(--warn);"></div></div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);" id="efsub">Faltan $6M</div>
     </div>
@@ -419,6 +419,17 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
     <span>Análisis</span>
   </button>
 </nav>
+
+<!-- MODAL EMERGENCY FUND -->
+<div class="overlay" id="modal-ef" onclick="cOverlay('modal-ef',event)">
+  <div class="modal">
+    <div class="mhandle"></div><h3>Fondo de emergencia</h3>
+    <div class="ff"><label class="fl">Saldo actual</label><input type="number" class="fi" id="ef-val-input" placeholder="14000000" inputmode="numeric"></div>
+    <div class="ff"><label class="fl">Meta</label><input type="number" class="fi" id="ef-goal-input" placeholder="20000000" inputmode="numeric"></div>
+    <button class="btnp" onclick="saveEF()">Guardar</button>
+    <button class="btns" onclick="cOverlay('modal-ef')">Cancelar</button>
+  </div>
+</div>
 
 <!-- MODAL EXPENSE -->
 <div class="overlay" id="modal-exp" onclick="cOverlay('modal-exp',event)">
@@ -861,6 +872,7 @@ function rAnal(){
   // Emergency fund
   const ep=Math.round(S.ef/S.efGoal*100),eL=S.efGoal-S.ef,eM=base>0&&base*0.1>0?Math.ceil(eL/(base*0.1)):'?';
   document.getElementById('efval').textContent=fmt(S.ef);
+  document.getElementById('efmeta').textContent=`de ${fmt(S.efGoal)} meta`;
   document.getElementById('efbadge').textContent=ep+'%';
   document.getElementById('efbar').style.width=ep+'%';
   document.getElementById('efsub').textContent=`Faltan ${fmt(eL)} · ~${eM} meses al ritmo actual`;
@@ -880,7 +892,20 @@ function rAnal(){
 function oModal(id){
   if(id==='modal-exp') popCats();
   if(id==='modal-inc'){rIncList();document.getElementById('incmonth').textContent=MOS[S.month].toLowerCase();}
+  if(id==='modal-ef'){
+    document.getElementById('ef-val-input').value=S.ef;
+    document.getElementById('ef-goal-input').value=S.efGoal;
+  }
   document.getElementById(id).classList.add('on');
+}
+
+function saveEF(){
+  const val=parseFloat(document.getElementById('ef-val-input').value)||0;
+  const goal=parseFloat(document.getElementById('ef-goal-input').value)||0;
+  if(val>0) S.ef=val;
+  if(goal>0) S.efGoal=goal;
+  cOverlay('modal-ef');
+  save(); rAnal();
 }
 function cOverlay(id,e){if(!e||e.target.classList.contains('overlay'))document.getElementById(id).classList.remove('on');}
 function selP(el,gid){document.getElementById(gid).querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');}
