@@ -479,13 +479,13 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
 const BUCKETS=[
   {emoji:'🏠',name:'Necesidades Básicas',pct:50,color:'#C4623A',hasSubs:true},
   {emoji:'😄',name:'Gozo',pct:10,color:'#D4A843'},
-  {emoji:'💾',name:'Ahorro',pct:10,color:'#6B9E6F'},
-  {emoji:'📈',name:'Inversión',pct:5,color:'#8B7BAE'},
-  {emoji:'📚',name:'Formación',pct:5,color:'#5B87A8'},
-  {emoji:'❤️',name:'Donación',pct:5,color:'#B06070'},
-  {emoji:'📋',name:'Imp. Renta',pct:5,color:'#7A7468'},
-  {emoji:'🎯',name:'Metas',pct:3,color:'#D4A843'},
-  {emoji:'🌴',name:'Libertad',pct:2,color:'#6B9E6F'},
+  {emoji:'💾',name:'Ahorro',pct:10,color:'#6B9E6F',positive:true},
+  {emoji:'📈',name:'Inversión',pct:5,color:'#8B7BAE',positive:true},
+  {emoji:'📚',name:'Formación',pct:5,color:'#5B87A8',positive:true},
+  {emoji:'❤️',name:'Donación',pct:5,color:'#B06070',positive:true},
+  {emoji:'📋',name:'Imp. Renta',pct:5,color:'#7A7468',positive:true},
+  {emoji:'🎯',name:'Metas',pct:3,color:'#D4A843',positive:true},
+  {emoji:'🌴',name:'Libertad',pct:2,color:'#6B9E6F',positive:true},
   {emoji:'🛡️',name:'Colchón',pct:5,color:'#5B87A8'},
 ];
 const SUBS=[
@@ -751,7 +751,9 @@ function rBuckets(base,curTx,totSpent){
     const budget=base*b.pct/100, rem=budget-spent;
     const pB=budget>0?Math.min(Math.round(spent/budget*100),999):0;
     const pT=totSpent>0?Math.round(spent/totSpent*100):0;
-    const fc=pB>=90?'var(--terra)':pB>=70?'var(--warn)':b.color;
+    const fc=b.positive
+      ? (pB>=100?b.color:b.color)  // always their own color — green/positive
+      : (pB>=90?'var(--terra)':pB>=70?'var(--warn)':b.color);
     let sh='';
     if(b.hasSubs){
       const gs={};
@@ -772,8 +774,8 @@ function rBuckets(base,curTx,totSpent){
       </div>
       <div class="pt"><div class="pf" style="width:${Math.min(pB,100)}%;background:${fc};"></div></div>
       <div class="bcmeta">
-        <div><span class="pp pb" style="${pB>=100?'background:rgba(196,98,58,0.2);color:var(--terra);':''}">${pB}% del bolsillo</span><span class="pp pt2">${pT}% del gasto</span></div>
-        <div class="bcrem" style="${rem<0?'color:var(--terra);':''}">${base>0?(rem>=0?'Quedan ':'Exceso ')+fmt(Math.abs(rem)):''}</div>
+        <div><span class="pp pb" style="${!b.positive&&pB>=100?'background:rgba(196,98,58,0.2);color:var(--terra);':b.positive&&pB>=95?'background:rgba(107,158,111,0.2);color:var(--sage);':''}">${pB}% del bolsillo</span><span class="pp pt2">${pT}% del gasto</span></div>
+        <div class="bcrem" style="${!b.positive&&rem<0?'color:var(--terra);':b.positive&&pB>=95?'color:var(--sage);':''}">${base>0?(b.positive?(pB>=95?'✓ Separado':('Pendiente '+fmt(Math.abs(rem)))):rem>=0?'Quedan ':'Exceso ')+( b.positive&&pB>=95?'':fmt(Math.abs(rem))):''}</div>
       </div>
       ${b.hasSubs?`<div class="sublist" id="sl${bi}">${sh}</div>`:''}
     </div>`;
