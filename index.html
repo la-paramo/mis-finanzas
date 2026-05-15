@@ -1021,12 +1021,21 @@ function impCSV(input,type){
       if(type==='debito'){
         if(rn>0)return;
         if(SKPD.some(kw=>dl.includes(kw)))return;
-        const dp=dr.split('/'),day=parseInt(dp[0]),mon=parseInt(dp[1]||(S.month+1));
-        const yr=(mon>S.month+1&&S.month<3)?S.year-1:S.year;
-        const k=mkey(yr,mon-1);
+        // Format: M/D/YYYY
+        const dp=dr.split('/');
+        let txDay=1,txMon=S.month+1,txYear=S.year;
+        if(dp.length===3){
+          txMon=parseInt(dp[0]);
+          txDay=parseInt(dp[1]);
+          txYear=parseInt(dp[2])||S.year;
+        } else if(dp.length===2){
+          txDay=parseInt(dp[0]);
+          txMon=parseInt(dp[1]);
+        }
+        const k=mkey(txYear,txMon-1);
         if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
-        S.data[k].transactions.push({id:Date.now()+Math.random(),date:`${day} ${MN[mon]||mon}`,desc,bucket:autoCat(dl,notes),account:'Débito',amount:Math.abs(rn),nextMonth:false,notes});
-        imp++;lm=mon-1;ly=yr;
+        S.data[k].transactions.push({id:Date.now()+Math.random(),date:`${txDay} ${MN[txMon]||txMon}`,desc,bucket:autoCat(dl,notes),account:'Débito',amount:Math.abs(rn),nextMonth:false,notes});
+        imp++;lm=txMon-1;ly=txYear;
       }else{
         if(rn<0)return;
         if(SKPC.some(kw=>dl.includes(kw)))return;
