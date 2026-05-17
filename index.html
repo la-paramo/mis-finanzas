@@ -280,7 +280,7 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
   </div>
   <div class="ss">
     <div class="sc"><div class="sl">Disponible</div><div class="sv pos" id="savail">—</div></div>
-    <div class="sc"><div class="sl">Gastado</div><div class="sv neg" id="sspent">—</div></div>
+    <div class="sc"><div class="sl">Invertido</div><div class="sv neg" id="sspent">—</div></div>
     <div class="sc"><div class="sl">Del total</div><div class="sv neu" id="spct">—</div></div>
   </div>
   <div class="sec"><div class="insight" id="dinsight">Registra tus ingresos del mes para ver el plan.</div></div>
@@ -738,11 +738,17 @@ function rDash(){
   document.getElementById('sspent').textContent=spent>0?fmt(spent):'—';
   document.getElementById('spct').textContent=base>0?pct+'%':'—';
 
+  // Days remaining in cycle: from today to the 10th of next month
   let ins='Registra tus ingresos del mes para ver el plan personalizado.';
-  if(base>0){const dl=30-new Date().getDate();
-    if(pct>85) ins=`⚠️ Llevas <strong>${pct}% gastado</strong> con ${dl} días restantes.`;
-    else if(pct>60) ins=`Llevas <strong>${pct}% gastado</strong> con ${dl} días restantes. Vas bien. 🟡`;
-    else ins=`Llevas <strong>${pct}% gastado</strong> con ${dl} días restantes. ¡Excelente! 🟢`;
+  if(base>0){
+    const today=new Date();
+    const day=today.getDate();
+    // Next payday is the 10th of next month
+    let nextPay=new Date(today.getFullYear(), today.getMonth()+(day>=10?1:0), 10);
+    const dl=Math.ceil((nextPay-today)/(1000*60*60*24));
+    if(pct>85) ins=`⚠️ Llevas <strong>${pct}% invertido</strong> con ${dl} días restantes del ciclo.`;
+    else if(pct>60) ins=`Llevas <strong>${pct}% invertido</strong> con ${dl} días restantes del ciclo. Vas bien. 🟡`;
+    else ins=`Llevas <strong>${pct}% invertido</strong> con ${dl} días restantes del ciclo. ¡Excelente! 🟢`;
   }
   document.getElementById('dinsight').innerHTML=ins;
   rBuckets(base,curTx,spent);
