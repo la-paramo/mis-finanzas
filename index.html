@@ -612,7 +612,9 @@ async function sync(){
   try{
     const tx=[],inc=[],cfg=[['sheetsUrl',S.sheetsUrl],['ef',S.ef],['efGoal',S.efGoal],['ccPaid',JSON.stringify(S.ccPaid||{})],['startBal',JSON.stringify(S.startBal||{})]];
     Object.entries(S.data).forEach(([k,d])=>{
-      (d.transactions||[]).forEach(t=>tx.push([String(t.iso||t.date||''),String(t.date||''),String(t.desc||''),String(t.bucket||''),String(t.account||''),Number(t.amount||0),String(t.id||''),String(t.notes||''),String(t.kind||'')]));
+      // Column A and B both carry the full ISO date (YYYY-MM-DD) so neither corrupts to day-01.
+      // Prefix with apostrophe-safe: Apps Script sets col A as text; col B we write full ISO too.
+      (d.transactions||[]).forEach(t=>{const iso=t.iso||toISO(parseDate(t.date))||'';tx.push([String(iso),String(iso||t.date||''),String(t.desc||''),String(t.bucket||''),String(t.account||''),Number(t.amount||0),String(t.id||''),String(t.notes||''),String(t.kind||'')]);});
       (d.incomes||[]).forEach(i=>inc.push([String(i.iso||''),Number(i.amount||0),String(i.desc||''),String(i.account||''),String(i.id||'')]));
     });
     await Promise.all([
@@ -677,8 +679,9 @@ async function loadSheets(url){
     if(tj.ok&&tj.data.length>1){
       S.data={};
       tj.data.slice(1).forEach(r=>{
-        // Column A is now ISO date (or legacy month-key); derive container + iso
-        const pd=parseDate(r[0])||parseDate(r[1]);
+        // Column B holds the REAL date (full ISO with day, e.g. 2026-05-14T...).
+        // Column A can get corrupted by Sheets to YYYY-MM-01, so prefer B.
+        const pd=parseDate(r[1])||parseDate(r[0]);
         const k=pd?`${pd.y}-${String(pd.m+1).padStart(2,'0')}`:null;
         if(!k) return;
         if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
@@ -686,6 +689,8 @@ async function loadSheets(url){
       });
     }
     if(ij.ok&&ij.data.length>1) ij.data.slice(1).forEach(r=>{
+      // Incomes: column A is the ISO date (we control it, less corruption risk),
+      // but guard with full-date detection.
       const pd=parseDate(r[0]);
       const k=pd?`${pd.y}-${String(pd.m+1).padStart(2,'0')}`:ckey();
       if(!S.data[k])S.data[k]={incomes:[],transactions:[]};
@@ -786,10 +791,11 @@ function parseDate(raw){
       return {y:dt.getUTCFullYear(),m:dt.getUTCMonth(),d:dt.getUTCDate()};
     }
   }
-  // Text "14 may" / "5 dic" (legacy app format) — day + Spanish month abbrev
-  const txtMatch=s.toLowerCase().match(/^(\d{1,2})\s+([a-záéíóú]{3,})/);
+  // Text "14 may" / "5 dic" / "14 de may." (legacy app format) — day [de] month-abbrev
+  const txtMatch=s.toLowerCase().replace(/\./g,'').match(/^(\d{1,2})\s+(?:de\s+)?([a-záéíóú]{3,})/);
   if(txtMatch){
-    const d=+txtMatch[1], mAbbr=txtMatch[2].slice(0,3);
+    const d=+txtMatch[1], mAbbr=txtMatch[2].slice(0,3)
+      .replace('ene','ene').replace('abr','abr'); // normalize handled by index lookup
     const idx=MN_ABBR.indexOf(mAbbr);
     if(idx>=0) return {y:S.year,m:idx,d};
   }
