@@ -518,6 +518,13 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
     <div class="ff"><label class="fl">Tipo</label><div class="pills" id="trtype"></div></div>
     <div class="ff"><label class="fl">Fecha</label><input type="date" class="fi" id="trdate"></div>
     <div class="ff"><label class="fl">Monto COP</label><input type="number" class="fi" id="tramt" placeholder="0" inputmode="numeric"></div>
+    <div class="ff" id="trdestwrap" style="display:none;"><label class="fl">¿A qué cuenta entró?</label>
+      <div class="pills" id="trdest">
+        <div class="pill on" onclick="selP(this,'trdest')">Efectivo</div>
+        <div class="pill" onclick="selP(this,'trdest')">Nequi</div>
+        <div class="pill" onclick="selP(this,'trdest')">Débito</div>
+      </div>
+    </div>
     <div class="ff" id="trcatwrap" style="display:none;"><label class="fl">Categoría que se repone</label><select class="fsel" id="trcat"></select></div>
     <div class="ff"><label class="fl">Nota (opcional)</label><input type="text" class="fi" id="trnote" placeholder="Ej: cuota arriendo de mi pareja..."></div>
     <button class="btnp" onclick="saveTr()">Registrar</button>
@@ -1369,12 +1376,21 @@ function oTransfer(from){
   document.getElementById('trdate').value=todayISO();
   popTrCats();
   document.getElementById('trcatwrap').style.display='none';
+  document.getElementById('trdestwrap').style.display='none';
   document.getElementById('modal-tr').classList.add('on');
 }
 function selTrType(el,mode){
   selP(el,'trtype'); trMode=mode;
-  // show category selector only for devolución
-  document.getElementById('trcatwrap').style.display=(mode==='devolucion')?'block':'none';
+  // show category selector + destination account selector only for devolución
+  const isDev=(mode==='devolucion');
+  document.getElementById('trcatwrap').style.display=isDev?'block':'none';
+  document.getElementById('trdestwrap').style.display=isDev?'block':'none';
+  if(isDev){
+    // default destination to the account the modal was opened from
+    const map={efectivo:'Efectivo',nequi:'Nequi',debito:'Débito'};
+    const want=map[trFrom]||'Efectivo';
+    document.querySelectorAll('#trdest .pill').forEach(p=>p.classList.toggle('on',p.textContent.trim()===want));
+  }
 }
 function popTrCats(){
   const sel=document.getElementById('trcat'); if(!sel)return;
@@ -1406,8 +1422,10 @@ function saveTr(){
     pushInc(pd,{id:Date.now()+Math.random(),amount:amt,desc:note||`Transferencia desde ${from}`,account:accFull[dest]});
   } else if(trMode==='devolucion'){
     const cat=document.getElementById('trcat').value;
-    // Devolución: money comes INTO the account, reduces the category's net spend
-    pushTx(pd,{id:Date.now()+Math.random(),desc:note||'Devolución',bucket:cat||'',account:from,amount:amt,notes:'devolucion',kind:'devolucion'});
+    // Devolución: money comes INTO the chosen account, reduces the category's net spend
+    const destTxt=document.querySelector('#trdest .pill.on')?.textContent.trim()||'Efectivo';
+    const destAcc=destTxt.includes('Efectivo')?'Efectivo':destTxt.includes('Nequi')?'Nequi':'Débito';
+    pushTx(pd,{id:Date.now()+Math.random(),desc:note||'Devolución',bucket:cat||'',account:destAcc,amount:amt,notes:'devolucion',kind:'devolucion'});
   } else if(trMode==='ajuste-mas'){
     pushTx(pd,{id:Date.now()+Math.random(),desc:note||'Ajuste +',bucket:'',account:from,amount:amt,notes:'ajuste',kind:'ajuste-mas'});
   } else if(trMode==='ajuste-menos'){
