@@ -768,6 +768,15 @@ function parseDate(raw){
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
     const p=s.split('-');return {y:+p[0],m:+p[1]-1,d:+p[2]};
   }
+  // Month-key only: 2026-05 (legacy storage) → treat as day 15 (always lands in that
+  // month's 10-to-10 cycle, and in that calendar month for credit)
+  if(/^\d{4}-\d{2}$/.test(s)){
+    const p=s.split('-');return {y:+p[0],m:+p[1]-1,d:15};
+  }
+  // ISO month datetime without day: 2026-05T...  (rare) → day 15
+  if(/^\d{4}-\d{2}T/.test(s)){
+    const p=s.slice(0,7).split('-');return {y:+p[0],m:+p[1]-1,d:15};
+  }
   // Excel serial number (e.g. 46164) — days since 1899-12-30
   if(/^\d{4,6}(\.\d+)?$/.test(s)){
     const serial=parseFloat(s);
