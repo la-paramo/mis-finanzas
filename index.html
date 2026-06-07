@@ -639,9 +639,9 @@ function calcAccounts(){
       const k=accOf(t.account); if(!k) return;
       // Devoluciones reponen dinero a la cuenta (entra plata)
       if(t.kind==='devolucion'){ bal[k]+=t.amount; return; }
-      // Ajustes
-      if(t.kind==='ajuste-mas'||t.kind==='ajuste-legacy'){ bal[k]+=t.amount; return; }
-      if(t.kind==='ajuste-menos'||t.kind==='ajuste-legacy-menos'){ bal[k]-=t.amount; return; }
+      // Ajustes nuevos: + suma, − resta. Ajustes legacy (modelo viejo) eran RESTAS.
+      if(t.kind==='ajuste-mas'){ bal[k]+=t.amount; return; }
+      if(t.kind==='ajuste-menos'||t.kind==='ajuste-legacy'||t.kind==='ajuste-legacy-menos'){ bal[k]-=t.amount; return; }
       // transfer-out, transfer-legacy, gastos, cargos bancarios all resta
       bal[k]-=t.amount;
     });
