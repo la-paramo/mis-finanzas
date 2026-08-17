@@ -239,6 +239,24 @@ body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;overflo
 .incdesc .ids{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);}
 .incamt{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--sage);}
 .incdel{background:none;border:none;color:var(--dim);cursor:pointer;font-size:18px;padding:0 4px;}
+
+/* TRAVEL MODE TOGGLE */
+.tmwrap{display:flex;align-items:center;gap:12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:12px 14px;margin-bottom:16px;}
+.tmwrap.on{border-color:var(--gold);background:rgba(212,168,67,0.08);}
+.tmlbl{flex:1;font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--txt);display:flex;flex-direction:column;gap:2px;}
+.tmsub{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:400;color:var(--dim);letter-spacing:0.5px;}
+.tmsw{width:44px;height:25px;border-radius:13px;background:var(--bdr);position:relative;cursor:pointer;flex-shrink:0;transition:background 0.2s;}
+.tmsw.on{background:var(--gold);}
+.tmknob{width:19px;height:19px;border-radius:50%;background:var(--sur);position:absolute;top:3px;left:3px;transition:left 0.2s;}
+.tmsw.on .tmknob{left:22px;background:var(--bg);}
+
+/* TRAVEL SECTION */
+.tvnote{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);line-height:1.5;margin-bottom:12px;}
+.tvnote code{background:var(--sur2);padding:1px 5px;border-radius:3px;color:var(--gold);}
+.tvstat{display:flex;justify-content:space-between;align-items:center;background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;margin-bottom:10px;}
+.tvsn{font-size:13px;font-weight:600;}
+.tvss{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim);margin-top:3px;}
+.tvsa{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--gold);}
 </style>
 </head>
 <body>
@@ -254,8 +272,8 @@ body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;overflo
   <div class="sstep">
     <div class="sn">Paso 2 de 4</div><div class="st">Agrega el Apps Script</div>
     <div class="sb"><code>Extensiones → Apps Script</code> → borra todo → pega esto:</div>
-    <div class="codeblock" id="sc">function doPost(e){try{const d=JSON.parse(e.postData.contents);const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(d.sheet);if(d.action==='clear_append'){const lr=sh.getLastRow();if(lr>=d.startRow)sh.getRange(d.startRow,1,lr-d.startRow+1,10).clearContent();if(d.rows&&d.rows.length>0){const range=sh.getRange(d.startRow,1,d.rows.length,d.rows[0].length);range.setNumberFormat('@');range.setValues(d.rows);}}return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}
-function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(e.parameter.sheet);if(!sh)return ContentService.createTextOutput(JSON.stringify({ok:false,error:'Sheet not found'})).setMimeType(ContentService.MimeType.JSON);return ContentService.createTextOutput(JSON.stringify({ok:true,data:sh.getDataRange().getValues()})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}</div>
+    <div class="codeblock" id="sc">function doPost(e){try{const d=JSON.parse(e.postData.contents);const ss=d.fileId?SpreadsheetApp.openById(d.fileId):SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(d.sheet);if(d.action==='clear_append'){const lr=sh.getLastRow();if(lr&gt;=d.startRow)sh.getRange(d.startRow,1,lr-d.startRow+1,10).clearContent();if(d.rows&amp;&amp;d.rows.length&gt;0){const range=sh.getRange(d.startRow,1,d.rows.length,d.rows[0].length);range.setNumberFormat('@');range.setValues(d.rows);}}if(d.action==='travel_append'){if(d.rows&amp;&amp;d.rows.length&gt;0){const col=sh.getRange(1,1,sh.getMaxRows(),1).getValues();var last=1;for(var i=col.length-1;i&gt;=1;i--){if(String(col[i][0]).trim()!==''){last=i+1;break;}}const start=last+1;const ab=d.rows.map(function(r){return [r[0],r[1]];});const dh=d.rows.map(function(r){return [r[2],r[3],r[4],r[5],Number(r[6])||0];});sh.getRange(start,1,ab.length,2).setValues(ab);sh.getRange(start,4,dh.length,5).setValues(dh);}}if(d.action==='add_trip'){const data=sh.getDataRange().getValues();var totalRow=-1;for(var i=0;i&lt;data.length;i++){if(String(data[i][0]).trim().toUpperCase()==='TOTAL'){totalRow=i+1;break;}}if(totalRow&lt;0)totalRow=sh.getLastRow()+1;sh.insertRowBefore(totalRow);sh.getRange(totalRow,1,1,6).setValues([[d.trip.name,d.trip.start,d.trip.end,Number(d.trip.rate)||0,Number(d.trip.nights)||0,Number(d.trip.budget)||0]]);const nt=totalRow+1,last=totalRow;const cols={5:'E',8:'H',9:'I',10:'J',11:'K',12:'L',13:'M',14:'N'};Object.keys(cols).forEach(function(c){sh.getRange(nt,Number(c)).setFormula('=SUM('+cols[c]+'2:'+cols[c]+last+')');});sh.getRange(nt,16).setFormula('=IF($E'+nt+'=0,"",ROUND($L'+nt+'/$E'+nt+',2))');}return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}
+function doGet(e){try{const ss=e.parameter.fileId?SpreadsheetApp.openById(e.parameter.fileId):SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(e.parameter.sheet);if(!sh)return ContentService.createTextOutput(JSON.stringify({ok:false,error:'Sheet not found'})).setMimeType(ContentService.MimeType.JSON);return ContentService.createTextOutput(JSON.stringify({ok:true,data:sh.getDataRange().getValues()})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}</div>
     <button class="copybtn" onclick="copyScript()">📋 Copiar código</button>
   </div>
   <div class="sstep">
@@ -270,6 +288,15 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
       <button class="btnconn" onclick="connect()">Conectar</button>
     </div>
     <div id="cmsg"></div>
+  </div>
+  <div class="sstep">
+    <div class="sn">Paso 5 de 5 · opcional</div><div class="st">Viáticos de trabajo</div>
+    <div class="sb">Si quieres registrar gastos de viaje que se reportan a Ops, pega el <strong>ID</strong> del Google Sheet de viáticos. Lo sacas de su URL: <code>docs.google.com/spreadsheets/d/<strong>ESTE_ES_EL_ID</strong>/edit</code></div>
+    <div class="urlwrap">
+      <input type="text" class="sinput" id="ops-fileid" placeholder="1LQ5ADMVfkd4b5JCUhNG9xhrti6ZSoGCu">
+      <button class="btnconn" onclick="saveOpsId()">Guardar</button>
+    </div>
+    <div id="opsmsg"></div>
   </div>
   <button class="skipbtn" onclick="skip()">Usar sin Google Sheets (solo local)</button>
 </div>
@@ -358,6 +385,12 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
 <!-- IMPORT -->
 <div class="pg" id="pg-import">
   <div class="ph"><div class="eye">Importar</div><h1>CSV <span>semanal</span></h1></div>
+  <div class="sec" id="travelsec" style="display:none;">
+    <div class="sech"><h2>✈️ Viáticos → Ops</h2><button onclick="pushTravel()">Sincronizar</button></div>
+    <div class="tvnote">Escribe <code>viaticos</code> en la columna de notas del CSV y esos gastos se separan aquí — nunca entran a tus bolsillos ni a la pestaña Tarjeta.</div>
+    <div id="tvstat"></div>
+    <div id="tvlist"></div>
+  </div>
   <div class="sec">
     <div class="sech"><h2>Débito Bancolombia</h2></div>
     <div class="iz" onclick="document.getElementById('fd').click()">
@@ -421,6 +454,33 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
   <div class="sec"><div class="sech"><h2>Insights del mes</h2></div><div id="inslist"></div></div>
 </div>
 
+<!-- MODAL NUEVO VIAJE -->
+<div class="overlay" id="modal-trip" onclick="cOverlay('modal-trip',event)">
+  <div class="modal">
+    <div class="mhandle"></div><h3>Crear viaje nuevo</h3>
+    <div class="sb" style="font-size:11px;color:var(--dim);margin-bottom:14px;">Se agrega a la hoja TRIPS del Sheet de Ops y se recalculan los totales.</div>
+    <div class="ff"><label class="fl">Nombre del viaje</label><input type="text" class="fi" id="ntname" placeholder="AGO 10-15"></div>
+    <div class="ff"><label class="fl">Inicio</label><input type="date" class="fi" id="ntstart"></div>
+    <div class="ff"><label class="fl">Fin</label><input type="date" class="fi" id="ntend"></div>
+    <div class="ff"><label class="fl">Tasa de cambio (COP por USD)</label><input type="number" class="fi" id="ntrate" placeholder="3900"></div>
+    <div class="ff"><label class="fl">Presupuesto USD</label><input type="number" class="fi" id="ntbudget" placeholder="450" value="450"></div>
+    <button class="btnp" onclick="saveNewTrip()">Crear viaje</button>
+    <button class="btns" onclick="cOverlay('modal-trip')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR VIAJE (import CSV sin match de fecha) -->
+<div class="overlay" id="modal-assign" onclick="cOverlay('modal-assign',event)">
+  <div class="modal">
+    <div class="mhandle"></div><h3>¿A qué viaje pertenece?</h3>
+    <div class="sb" style="font-size:11px;color:var(--dim);margin-bottom:6px;" id="asgctx"></div>
+    <div id="asglist"></div>
+    <div class="ff"><label class="fl">Viaje</label><select class="fsel" id="asgtrip"></select></div>
+    <button class="btnp" onclick="resolveAssign()">Asignar</button>
+    <button class="btns" onclick="skipAssign()">Omitir este gasto</button>
+  </div>
+</div>
+
 <!-- FAB + SUBMENU -->
 <div class="fabmenu" id="fabmenu">
   <button class="fabitem" onclick="fabAdd('gasto')"><span class="fabil">Gasto</span><span class="fabic">💸</span></button>
@@ -471,10 +531,29 @@ function doGet(e){try{const ss=SpreadsheetApp.getActiveSpreadsheet();const sh=ss
 <div class="overlay" id="modal-exp" onclick="cOverlay('modal-exp',event)">
   <div class="modal">
     <div class="mhandle"></div><h3 id="exptitle">Agregar gasto</h3>
+    <div class="tmwrap" id="tmwrap">
+      <div class="tmlbl">✈️ Travel mode<span class="tmsub">gasto de viaje · va al reporte de Ops</span></div>
+      <div class="tmsw" id="tmsw" onclick="toggleTravelMode()"><div class="tmknob"></div></div>
+    </div>
     <div class="ff"><label class="fl">Fecha</label><input type="date" class="fi" id="edate"></div>
     <div class="ff"><label class="fl">Monto COP</label><input type="number" class="fi" id="eamt" placeholder="0" inputmode="numeric"></div>
     <div class="ff"><label class="fl">Descripción</label><input type="text" class="fi" id="edesc" placeholder="¿En qué fue?"></div>
-    <div class="ff"><label class="fl">Categoría</label><select class="fsel" id="ecat"></select></div>
+    <div class="ff" id="ecatwrap"><label class="fl">Categoría</label><select class="fsel" id="ecat"></select></div>
+    <div class="ff tvonly" style="display:none;"><label class="fl">Viaje</label><select class="fsel" id="etrip"></select></div>
+    <div class="ff tvonly" style="display:none;"><label class="fl">Categoría del viaje</label>
+      <div class="pills" id="etcat">
+        <div class="pill on" onclick="selP(this,'etcat')">Flights</div>
+        <div class="pill" onclick="selP(this,'etcat')">Lodging</div>
+        <div class="pill" onclick="selP(this,'etcat')">Transportation</div>
+        <div class="pill" onclick="selP(this,'etcat')">Food</div>
+      </div>
+    </div>
+    <div class="ff tvonly" style="display:none;"><label class="fl">Billable</label>
+      <div class="pills" id="ebill">
+        <div class="pill on" onclick="selP(this,'ebill')">Work</div>
+        <div class="pill" onclick="selP(this,'ebill')">Personal</div>
+      </div>
+    </div>
     <div class="ff"><label class="fl">Cuenta</label>
       <div class="pills" id="eacc">
         <div class="pill on" onclick="selP(this,'eacc')">Efectivo</div>
@@ -597,7 +676,7 @@ const bk=b=>b.emoji+' '+b.name;
 const sk=s=>s.emoji+' '+s.name;
 
 // ═══════ STATE ═══════
-let S={sheetsUrl:'',month:new Date().getMonth(),year:new Date().getFullYear(),data:{},accounts:{debito:0,efectivo:0,nequi:0},ef:14000000,efGoal:20000000,ccPaid:{},startBal:{debito:0,efectivo:0,nequi:0}};
+let S={sheetsUrl:'',opsFileId:'',month:new Date().getMonth(),year:new Date().getFullYear(),data:{},accounts:{debito:0,efectivo:0,nequi:0},ef:14000000,efGoal:20000000,ccPaid:{},startBal:{debito:0,efectivo:0,nequi:0},travel:[],trips:[]};
 const mkey=(y,m)=>`${y}-${String(m+1).padStart(2,'0')}`;
 const ckey=()=>mkey(S.year,S.month);
 function cdata(){
@@ -631,6 +710,138 @@ async function sync(){
     ]);
     setSS('ok');
   }catch(e){setSS('er');}
+}
+
+// ═══════ VIÁTICOS / TRAVEL MODE ═══════
+const TRAVEL_CATS=['Flights','Lodging','Transportation','Food'];
+const TRAVEL_PAY={'LifeMiles':'Credit','Débito':'Debit','Efectivo':'Cash','Credit':'Credit','Debit':'Debit','Cash':'Cash'};
+
+function saveOpsId(){
+  const v=document.getElementById('ops-fileid').value.trim();
+  // Accept a full URL and extract the ID
+  let id=v;
+  const m=v.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(m) id=m[1];
+  S.opsFileId=id;
+  localStorage.setItem('mf3',JSON.stringify(S));
+  const el=document.getElementById('opsmsg');
+  if(!id){el.innerHTML='<div style="color:var(--dim);font-size:11px;margin-top:6px;">Sin Sheet de viáticos.</div>';return;}
+  el.innerHTML='<div style="color:var(--dim);font-size:11px;margin-top:6px;">Cargando viajes...</div>';
+  loadTrips().then(ok=>{
+    el.innerHTML=ok
+      ? `<div style="color:var(--sage);font-size:11px;margin-top:6px;">✓ Conectado · ${S.trips.length} viajes encontrados</div>`
+      : '<div style="color:var(--terra);font-size:11px;margin-top:6px;">No se pudo leer la hoja TRIPS. Revisa el ID y que el script tenga permiso.</div>';
+  });
+}
+
+// Read TRIPS from the Ops sheet → S.trips = [{name,start,end}]
+async function loadTrips(){
+  if(!S.sheetsUrl||!S.opsFileId) return false;
+  try{
+    const r=await fetch(`${S.sheetsUrl}?sheet=TRIPS&fileId=${encodeURIComponent(S.opsFileId)}`);
+    const j=await r.json();
+    if(!j.ok||!j.data||j.data.length<2) return false;
+    const trips=[];
+    j.data.slice(1).forEach(row=>{
+      const name=String(row[0]||'').trim();
+      if(!name||name.toUpperCase()==='TOTAL') return;
+      const ps=parseDate(row[1]), pe=parseDate(row[2]);
+      if(!ps||!pe) return;
+      trips.push({name,start:toISO(ps),end:toISO(pe)});
+    });
+    trips.sort((a,b)=>a.start<b.start?-1:1);
+    S.trips=trips;
+    localStorage.setItem('mf3',JSON.stringify(S));
+    return true;
+  }catch(e){return false;}
+}
+
+// Friendly label: "Mayo (13-22)"
+function tripLabel(t){
+  const ps=parseDate(t.start), pe=parseDate(t.end);
+  if(!ps||!pe) return t.name;
+  return `${MOS[ps.m]} (${ps.d}-${pe.d})`;
+}
+
+// Which trip does this ISO date fall into? Returns trip name or null.
+function tripFor(iso){
+  const pd=parseDate(iso); if(!pd) return null;
+  const k=toISO(pd);
+  const hit=(S.trips||[]).find(t=>k>=t.start&&k<=t.end);
+  return hit?hit.name:null;
+}
+
+// Push a travel expense
+function addTravel(obj){
+  if(!S.travel) S.travel=[];
+  S.travel.push(obj);
+}
+
+// Sync NEW travel expenses to the Ops sheet (EXPENSES tab) — APPEND ONLY.
+// Writes ONLY value columns: A(Trip) B(Date) D(Details) E(Category) F(Billable) G(Payment) H(Cost COP).
+// Never clears, never reorders, never touches C/I/J (formulas), K (Receipt), L (Reimbursed), M (Flag).
+async function syncTravel(){
+  if(!S.sheetsUrl||!S.opsFileId) return {ok:false,n:0};
+  const pending=(S.travel||[]).filter(t=>!t.synced);
+  if(pending.length===0) return {ok:true,n:0};
+  const rows=pending
+    .slice()
+    .sort((a,b)=>(a.iso||'')<(b.iso||'')?-1:1)
+    .map(t=>[String(t.trip||''),String(t.iso||''),String(t.desc||''),String(t.category||''),String(t.billable||'Work'),String(t.payment||'Credit'),Number(t.cop)||0]);
+  try{
+    const r=await fetch(S.sheetsUrl,{method:'POST',body:JSON.stringify({sheet:'EXPENSES',fileId:S.opsFileId,action:'travel_append',rows})});
+    const j=await r.json().catch(()=>({ok:true}));
+    if(j.ok!==false){
+      pending.forEach(t=>t.synced=true);
+      localStorage.setItem('mf3',JSON.stringify(S));
+      return {ok:true,n:pending.length};
+    }
+    return {ok:false,n:0};
+  }catch(e){return {ok:false,n:0};}
+}
+
+// Create a new trip in the Ops TRIPS sheet
+async function createTrip(name,start,end,rate,nights,budget){
+  if(!S.sheetsUrl||!S.opsFileId) return false;
+  try{
+    await fetch(S.sheetsUrl,{method:'POST',body:JSON.stringify({sheet:'TRIPS',fileId:S.opsFileId,action:'add_trip',trip:{name,start,end,rate,nights,budget}})});
+    await loadTrips();
+    return true;
+  }catch(e){return false;}
+}
+
+// ── Render de la lista de viáticos ──
+function rTravel(){
+  const sec=document.getElementById('travelsec'); if(!sec) return;
+  if(!S.opsFileId){sec.style.display='none';return;}
+  sec.style.display='block';
+  const list=(S.travel||[]).slice().sort((a,b)=>(b.iso||'')<(a.iso||'')?-1:1);
+  const pend=list.filter(t=>!t.synced).length;
+  const tot=list.reduce((s,t)=>s+(Number(t.cop)||0),0);
+  document.getElementById('tvstat').innerHTML=
+    `<div class="tvstat"><div><div class="tvsn">${list.length} gasto${list.length===1?'':'s'} de viaje</div><div class="tvss">${pend?`${pend} sin enviar a Ops`:'todo sincronizado'}</div></div><div class="tvsa">${fmt(tot)}</div></div>`;
+  const el=document.getElementById('tvlist');
+  if(list.length===0){el.innerHTML='<div style="text-align:center;padding:20px;font-family:\'JetBrains Mono\',monospace;font-size:11px;color:var(--dim);">Sin viáticos registrados</div>';return;}
+  el.innerHTML=list.slice(0,20).map(t=>{
+    const pd=parseDate(t.iso);
+    return `<div class="txrow"><div class="txdot" style="background:${t.synced?'var(--sage)':'var(--gold)'};"></div><div class="txinfo"><div class="txname">${t.desc}</div><div class="txmeta">${t.trip||'sin viaje'} · ${t.category} · ${t.billable}${pd?' · '+dispDate(pd):''}</div></div><div class="txright"><div class="txamt">${fmt(t.cop)}</div><div class="txacc">${t.synced?'✓ Ops':'pendiente'}</div><button class="incdel" onclick="delTravel('${t.id}')">×</button></div></div>`;
+  }).join('');
+}
+function delTravel(id){
+  const it=(S.travel||[]).find(t=>String(t.id)===String(id));
+  if(it&&it.synced){
+    if(!confirm('Este gasto ya está en el Sheet de Ops. Al borrarlo aquí NO se borra allá — tendrías que eliminar esa fila a mano en el Sheet. ¿Continuar?')) return;
+  }
+  S.travel=(S.travel||[]).filter(t=>String(t.id)!==String(id));
+  localStorage.setItem('mf3',JSON.stringify(S));
+  rTravel();
+}
+async function pushTravel(){
+  const r=await syncTravel();
+  rTravel();
+  const st=document.getElementById('tvstat');
+  if(r.n>0) st.insertAdjacentHTML('beforeend',`<div style="font-size:11px;color:var(--sage);margin-top:6px;">✓ ${r.n} enviado${r.n===1?'':'s'} a Ops</div>`);
+  else if(!r.ok) st.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:var(--terra);margin-top:6px;">No se pudo enviar. Revisa la conexión.</div>');
 }
 
 function calcAccounts(){
@@ -1243,7 +1454,7 @@ function pushInc(pd,obj){
 function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 
 function oModal(id){
-  if(id==='modal-exp'){popCats();document.getElementById('exptitle').textContent='Agregar gasto';document.getElementById('edate').value=todayISO();editingId=null;const db=document.getElementById('expdel');if(db)db.style.display='none';document.querySelectorAll('#eacc .pill').forEach((p,i)=>p.classList.toggle('on',i===0));document.getElementById('eamt').value='';document.getElementById('edesc').value='';}
+  if(id==='modal-exp'){popCats();document.getElementById('exptitle').textContent='Agregar gasto';document.getElementById('edate').value=todayISO();editingId=null;const db=document.getElementById('expdel');if(db)db.style.display='none';document.querySelectorAll('#eacc .pill').forEach((p,i)=>p.classList.toggle('on',i===0));document.getElementById('eamt').value='';document.getElementById('edesc').value='';travelMode=false;applyTravelMode();document.getElementById('tmwrap').style.display=S.opsFileId?'flex':'none';}
   if(id==='modal-inc'){rIncList();document.getElementById('incmonth').textContent=MOS[S.month].toLowerCase();document.getElementById('idate').value=todayISO();}
   if(id==='modal-ef'){
     document.getElementById('ef-val-input').value=S.ef;
@@ -1273,22 +1484,148 @@ function popCats(){
   sel.innerHTML=o;
 }
 
+let travelMode=false;
+function toggleTravelMode(){
+  travelMode=!travelMode;
+  applyTravelMode();
+}
+function applyTravelMode(){
+  document.getElementById('tmsw').classList.toggle('on',travelMode);
+  document.getElementById('tmwrap').classList.toggle('on',travelMode);
+  document.querySelectorAll('#modal-exp .tvonly').forEach(el=>el.style.display=travelMode?'block':'none');
+  document.getElementById('ecatwrap').style.display=travelMode?'none':'block';
+  if(travelMode) popTrips();
+}
+function popTrips(){
+  const sel=document.getElementById('etrip'); if(!sel) return;
+  const trips=S.trips||[];
+  if(trips.length===0){
+    sel.innerHTML='<option value="">Sin viajes — conecta el Sheet de Ops</option>';
+    return;
+  }
+  // Pre-select the trip matching the date currently in the form
+  const cur=tripFor(document.getElementById('edate').value);
+  sel.innerHTML=trips.map(t=>`<option value="${t.name}"${t.name===cur?' selected':''}>${tripLabel(t)}</option>`).join('')
+    +'<option value="__new__">+ Crear viaje nuevo...</option>';
+}
+
+// ── Crear viaje nuevo ──
+function openNewTrip(){
+  document.getElementById('ntname').value='';
+  const d=document.getElementById('edate').value||todayISO();
+  document.getElementById('ntstart').value=d;
+  document.getElementById('ntend').value=d;
+  // suggest last known rate
+  const last=(S.trips||[]).slice(-1)[0];
+  document.getElementById('ntrate').value=last&&last.rate?last.rate:'';
+  document.getElementById('modal-trip').classList.add('on');
+}
+async function saveNewTrip(){
+  const name=document.getElementById('ntname').value.trim();
+  const start=document.getElementById('ntstart').value;
+  const end=document.getElementById('ntend').value;
+  const rate=parseFloat(document.getElementById('ntrate').value)||0;
+  const budget=parseFloat(document.getElementById('ntbudget').value)||450;
+  if(!name||!start||!end){alert('Necesito nombre, inicio y fin del viaje.');return;}
+  const ps=parseDate(start), pe=parseDate(end);
+  const nights=Math.max(0,Math.round((new Date(pe.y,pe.m,pe.d)-new Date(ps.y,ps.m,ps.d))/86400000));
+  const btn=document.querySelector('#modal-trip .btnp');
+  btn.textContent='Creando...'; btn.disabled=true;
+  const ok=await createTrip(name,start,end,rate,nights,budget);
+  btn.textContent='Crear viaje'; btn.disabled=false;
+  if(!ok){alert('No se pudo crear el viaje. Revisa la conexión con el Sheet de Ops.');return;}
+  cOverlay('modal-trip');
+  popTrips();
+  const sel=document.getElementById('etrip'); if(sel) sel.value=name;
+  // if we were resolving an import, refresh that dropdown too
+  const asg=document.getElementById('asgtrip');
+  if(asg&&document.getElementById('modal-assign').classList.contains('on')) popAssignTrips(name);
+}
+
+// ── Cola de asignación de viaje (import CSV sin match) ──
+let assignQueue=[], assignIdx=0;
+function popAssignTrips(pre){
+  const sel=document.getElementById('asgtrip'); if(!sel) return;
+  const trips=S.trips||[];
+  sel.innerHTML=trips.map(t=>`<option value="${t.name}"${t.name===pre?' selected':''}>${tripLabel(t)}</option>`).join('')
+    +'<option value="__new__">+ Crear viaje nuevo...</option>';
+}
+function startAssign(queue){
+  assignQueue=queue; assignIdx=0;
+  if(assignQueue.length===0){ finishAssign(); return; }
+  showAssign();
+}
+function showAssign(){
+  const it=assignQueue[assignIdx];
+  if(!it){ finishAssign(); return; }
+  const pd=parseDate(it.iso);
+  document.getElementById('asgctx').textContent=`Gasto ${assignIdx+1} de ${assignQueue.length} · su fecha no cae en ningún viaje registrado.`;
+  document.getElementById('asglist').innerHTML=`<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:12px;margin-bottom:14px;"><div style="font-size:13px;font-weight:600;">${it.desc}</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--dim);margin-top:4px;">${pd?dispDate(pd):it.iso} · ${fmt(it.cop)}</div></div>`;
+  popAssignTrips();
+  document.getElementById('modal-assign').classList.add('on');
+}
+function resolveAssign(){
+  const v=document.getElementById('asgtrip').value;
+  if(v==='__new__'){
+    // reuse the new-trip modal, prefilled with this expense's date
+    const it=assignQueue[assignIdx];
+    document.getElementById('ntname').value='';
+    document.getElementById('ntstart').value=it.iso;
+    document.getElementById('ntend').value=it.iso;
+    document.getElementById('ntrate').value='';
+    document.getElementById('modal-trip').classList.add('on');
+    return;
+  }
+  const it=assignQueue[assignIdx];
+  it.trip=v;
+  addTravel(it);
+  assignIdx++;
+  if(assignIdx>=assignQueue.length){ cOverlay('modal-assign'); finishAssign(); }
+  else showAssign();
+}
+function skipAssign(){
+  assignIdx++;
+  if(assignIdx>=assignQueue.length){ cOverlay('modal-assign'); finishAssign(); }
+  else showAssign();
+}
+function finishAssign(){
+  assignQueue=[]; assignIdx=0;
+  localStorage.setItem('mf3',JSON.stringify(S));
+  syncTravel();
+  renderAll();
+}
+
 let editingId=null;
 function saveExp(){
   const amt=parseFloat(document.getElementById('eamt').value)||0;
   const desc=document.getElementById('edesc').value.trim();
-  const bucket=document.getElementById('ecat').value;
   const acc=document.querySelector('#eacc .pill.on')?.textContent.trim()||'Efectivo';
   const dval=document.getElementById('edate').value;
   if(!amt||!desc)return;
   const pd=parseDate(dval)||parseDate(todayISO());
 
+  // ── TRAVEL MODE: goes to the Ops sheet, never touches personal buckets ──
+  if(travelMode){
+    const tripSel=document.getElementById('etrip').value;
+    if(tripSel==='__new__'){ openNewTrip(); return; }
+    if(!tripSel){ alert('Conecta el Sheet de viáticos en ⚙️ para poder elegir el viaje.'); return; }
+    const tcat=document.querySelector('#etcat .pill.on')?.textContent.trim()||'Transportation';
+    const bill=document.querySelector('#ebill .pill.on')?.textContent.trim()||'Work';
+    addTravel({id:Date.now()+Math.random(),iso:toISO(pd),desc,category:tcat,billable:bill,payment:TRAVEL_PAY[acc]||'Credit',cop:amt,trip:tripSel});
+    document.getElementById('eamt').value='';document.getElementById('edesc').value='';
+    cOverlay('modal-exp');
+    localStorage.setItem('mf3',JSON.stringify(S));
+    syncTravel();
+    renderAll();
+    return;
+  }
+
+  const bucket=document.getElementById('ecat').value;
   if(editingId){
     // Find and update existing transaction
     let found=null,oldKey=null;
     Object.entries(S.data).forEach(([k,d])=>{(d.transactions||[]).forEach(t=>{if(String(t.id)===String(editingId)){found=t;oldKey=k;}});});
     if(found){
-      // Remove from old container, re-add to correct one
       S.data[oldKey].transactions=S.data[oldKey].transactions.filter(t=>String(t.id)!==String(editingId));
       pushTx(pd,{id:found.id,desc,bucket,account:acc,amount:amt,notes:found.notes||'',kind:found.kind});
     }
@@ -1438,6 +1775,16 @@ function saveTr(){
   save();renderAll();
 }
 
+// Guess the Ops travel category from the merchant description
+function guessTravelCat(dl){
+  dl=(dl||'').toLowerCase();
+  if(/avianca|latam|wingo|copa|vuelo|flight|airline|aero/.test(dl)) return 'Flights';
+  if(/airbnb|hotel|hostal|booking|lodging|apartaestudio/.test(dl)) return 'Lodging';
+  if(/uber|didi|cabify|taxi|indriver|transport|peaje|parqueadero|bus/.test(dl)) return 'Transportation';
+  if(/rest|food|cafe|coffee|panaderia|market|mercado|comida|bar |pizza|burger|sushi/.test(dl)) return 'Food';
+  return 'Transportation';
+}
+
 // ═══════ CSV IMPORT ═══════
 function navTo(m,y){S.month=m;S.year=y;setLabels();}
 
@@ -1446,7 +1793,8 @@ function impCSV(input,type){
   const rdr=new FileReader();
   rdr.onload=e=>{
     const lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());
-    let imp=0, lastPd=null;
+    let imp=0, lastPd=null, vimp=0;
+    const pendingTravel=[];
     const SKPD=['abono intereses ahorros','transferencia cta suc virtual','abono a tarjeta'];
     const SKPC=['abono sucursal'];
 
@@ -1459,8 +1807,7 @@ function impCSV(input,type){
       S.data[k].transactions.push(obj);
     };
 
-    if(type==='form'){
-      lines.slice(1).forEach(line=>{
+    if(type==='form'){      lines.slice(1).forEach(line=>{
         const c=pCSV(line);if(c.length<4)return;
         const dr=c[0]?.trim()||'',amt=Math.abs(pNum(c[1]||'')),desc=c[2]?.trim()||'',bucket=c[3]?.trim()||'',acc=c[4]?.trim()||'Efectivo';
         if(!amt||!desc)return;
@@ -1484,6 +1831,21 @@ function impCSV(input,type){
       const dl=desc.toLowerCase();
       // Robust date parse — D/M/Y convention for ambiguous text
       const pd=parseDate(dr)||parseDate(todayISO());
+
+      // ── VIÁTICOS: notes say "viaticos" → goes to the Ops sheet ONLY.
+      // Never enters personal transactions, never shows in the Tarjeta tab.
+      const nnorm=(notes||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if(nnorm.includes('viatico')){
+        if(type==='debito'&&rn>0)return;
+        if(type==='credito'&&rn<0)return;
+        const iso=toISO(pd);
+        const item={id:Date.now()+Math.random(),iso,desc,category:guessTravelCat(dl),billable:'Work',
+          payment:type==='credito'?'Credit':'Debit',cop:Math.abs(rn),trip:tripFor(iso)};
+        if(item.trip) addTravel(item); else pendingTravel.push(item);
+        vimp++;
+        return; // ← excluded from personal entirely
+      }
+
       if(type==='debito'){
         if(rn>0)return; // positive = abono, skip
         if(SKPD.some(kw=>dl.includes(kw)))return;
@@ -1501,11 +1863,17 @@ function impCSV(input,type){
     const stid=type==='credito'?'stc':'std', bdid=type==='credito'?'bdc':'bdd';
     const st=document.getElementById(stid),bd=document.getElementById(bdid);
     const now=new Date().toLocaleString('es-CO',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-    if(st)st.textContent=`${imp} importadas · ${now}`;
+    if(st)st.textContent=`${imp} importadas${vimp?` · ${vimp} viáticos → Ops`:''} · ${now}`;
     if(bd){bd.textContent='✓ Importado';bd.className='badge ok';}
     // Navigate to the cycle of the last imported debit transaction
     if(type==='debito'&&lastPd){const ck=cycleKeyOf(lastPd);const p=ck.split('-');navTo(+p[1]-1,+p[0]);}
     renderAll();
+    // Travel expenses: push matched ones, then ask about the unmatched
+    if(vimp){
+      localStorage.setItem('mf3',JSON.stringify(S));
+      if(pendingTravel.length) startAssign(pendingTravel);
+      else { syncTravel(); }
+    }
   };
   rdr.readAsText(file,'UTF-8');
 }
@@ -1522,6 +1890,7 @@ function expCSV(){
 // ═══════ RENDER ALL ═══════
 function renderAll(){
   rDash();
+  rTravel();
   if(document.getElementById('pg-anal').classList.contains('on'))rAnal();
   if(document.getElementById('pg-txs').classList.contains('on'))rTxs('atxs',null);
   if(document.getElementById('pg-credit').classList.contains('on'))rCredit();
@@ -1532,13 +1901,18 @@ async function init(){
   loadLocal();
   if(!S.ccPaid)S.ccPaid={};
   if(!S.startBal)S.startBal={debito:0,efectivo:0,nequi:0};
+  if(!S.travel)S.travel=[];
+  if(!S.trips)S.trips=[];
   migrateDates();
   calcAccounts();
   setLabels();
+  // restore Ops file id into the setup field
+  const of=document.getElementById('ops-fileid'); if(of&&S.opsFileId) of.value=S.opsFileId;
   if(!S.sheetsUrl){document.getElementById('setup').classList.add('on');renderAll();return;}
   document.getElementById('sbar').style.display='flex';
   document.getElementById('dinsight').innerHTML='Cargando datos desde Google Sheets...';
   await loadSheets(S.sheetsUrl);
+  if(S.opsFileId) loadTrips();
   renderAll();
 }
 
