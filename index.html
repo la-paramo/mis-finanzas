@@ -465,7 +465,7 @@ function doGet(e){try{const ss=e.parameter.fileId?SpreadsheetApp.openById(e.para
     <div class="ff"><label class="fl">Tasa de cambio (COP por USD)</label><input type="number" class="fi" id="ntrate" placeholder="3900"></div>
     <div class="ff"><label class="fl">Presupuesto USD</label><input type="number" class="fi" id="ntbudget" placeholder="450" value="450"></div>
     <button class="btnp" onclick="saveNewTrip()">Crear viaje</button>
-    <button class="btns" onclick="cOverlay('modal-trip')">Cancelar</button>
+    <button class="btns" onclick="cancelNewTrip()">Cancelar</button>
   </div>
 </div>
 
@@ -1511,6 +1511,7 @@ function popTrips(){
 
 // ── Crear viaje nuevo ──
 function openNewTrip(){
+  newTripFromAssign=false;
   document.getElementById('ntname').value='';
   const d=document.getElementById('edate').value||todayISO();
   document.getElementById('ntstart').value=d;
@@ -1535,11 +1536,32 @@ async function saveNewTrip(){
   btn.textContent='Crear viaje'; btn.disabled=false;
   if(!ok){alert('No se pudo crear el viaje. Revisa la conexión con el Sheet de Ops.');return;}
   cOverlay('modal-trip');
+  // Case 1: created from the ASSIGN flow (importing CSV) → assign the pending expense to it
+  if(newTripFromAssign){
+    newTripFromAssign=false;
+    const it=assignQueue[assignIdx];
+    if(it){
+      it.trip=name;
+      addTravel(it);
+      assignIdx++;
+    }
+    if(assignIdx>=assignQueue.length){ cOverlay('modal-assign'); finishAssign(); }
+    else showAssign();
+    return;
+  }
+  // Case 2: created from the expense modal's trip dropdown → just select it
   popTrips();
   const sel=document.getElementById('etrip'); if(sel) sel.value=name;
-  // if we were resolving an import, refresh that dropdown too
-  const asg=document.getElementById('asgtrip');
-  if(asg&&document.getElementById('modal-assign').classList.contains('on')) popAssignTrips(name);
+}
+
+let newTripFromAssign=false;
+function cancelNewTrip(){
+  document.getElementById('modal-trip').classList.remove('on');
+  // If we came from the assign flow, go back to it so the expense isn't lost
+  if(newTripFromAssign){
+    newTripFromAssign=false;
+    if(assignQueue[assignIdx]) showAssign();
+  }
 }
 
 // ── Cola de asignación de viaje (import CSV sin match) ──
@@ -1567,8 +1589,9 @@ function showAssign(){
 function resolveAssign(){
   const v=document.getElementById('asgtrip').value;
   if(v==='__new__'){
-    // reuse the new-trip modal, prefilled with this expense's date
+    // reuse the new-trip modal, prefilled with this expense's date; flag the return path
     const it=assignQueue[assignIdx];
+    newTripFromAssign=true;
     document.getElementById('ntname').value='';
     document.getElementById('ntstart').value=it.iso;
     document.getElementById('ntend').value=it.iso;
