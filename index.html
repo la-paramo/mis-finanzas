@@ -272,7 +272,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;overflo
   <div class="sstep">
     <div class="sn">Paso 2 de 4</div><div class="st">Agrega el Apps Script</div>
     <div class="sb"><code>Extensiones → Apps Script</code> → borra todo → pega esto:</div>
-    <div class="codeblock" id="sc">function doPost(e){try{const d=JSON.parse(e.postData.contents);const ss=d.fileId?SpreadsheetApp.openById(d.fileId):SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(d.sheet);if(d.action==='clear_append'){const lr=sh.getLastRow();if(lr&gt;=d.startRow)sh.getRange(d.startRow,1,lr-d.startRow+1,10).clearContent();if(d.rows&amp;&amp;d.rows.length&gt;0){const range=sh.getRange(d.startRow,1,d.rows.length,d.rows[0].length);range.setNumberFormat('@');range.setValues(d.rows);}}if(d.action==='travel_append'){if(d.rows&amp;&amp;d.rows.length&gt;0){const col=sh.getRange(1,1,sh.getMaxRows(),1).getValues();var last=1;for(var i=col.length-1;i&gt;=1;i--){if(String(col[i][0]).trim()!==''){last=i+1;break;}}const start=last+1;const ab=d.rows.map(function(r){return [r[0],r[1]];});const dh=d.rows.map(function(r){return [r[2],r[3],r[4],r[5],Number(r[6])||0];});sh.getRange(start,1,ab.length,2).setValues(ab);sh.getRange(start,4,dh.length,5).setValues(dh);}}if(d.action==='add_trip'){const data=sh.getDataRange().getValues();var totalRow=-1;for(var i=0;i&lt;data.length;i++){if(String(data[i][0]).trim().toUpperCase()==='TOTAL'){totalRow=i+1;break;}}if(totalRow&lt;0)totalRow=sh.getLastRow()+1;sh.insertRowBefore(totalRow);sh.getRange(totalRow,1,1,6).setValues([[d.trip.name,d.trip.start,d.trip.end,Number(d.trip.rate)||0,Number(d.trip.nights)||0,Number(d.trip.budget)||0]]);const nt=totalRow+1,last=totalRow;const cols={5:'E',8:'H',9:'I',10:'J',11:'K',12:'L',13:'M',14:'N'};Object.keys(cols).forEach(function(c){sh.getRange(nt,Number(c)).setFormula('=SUM('+cols[c]+'2:'+cols[c]+last+')');});sh.getRange(nt,16).setFormula('=IF($E'+nt+'=0,"",ROUND($L'+nt+'/$E'+nt+',2))');}return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}
+    <div class="codeblock" id="sc">function doPost(e){try{const d=JSON.parse(e.postData.contents);const ss=d.fileId?SpreadsheetApp.openById(d.fileId):SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(d.sheet);if(d.action==='clear_append'){const lr=sh.getLastRow();if(lr&gt;=d.startRow)sh.getRange(d.startRow,1,lr-d.startRow+1,10).clearContent();if(d.rows&amp;&amp;d.rows.length&gt;0){const range=sh.getRange(d.startRow,1,d.rows.length,d.rows[0].length);range.setNumberFormat('@');range.setValues(d.rows);}}if(d.action==='travel_append'){if(d.rows&amp;&amp;d.rows.length&gt;0){const col=sh.getRange(1,1,sh.getMaxRows(),1).getValues();var last=1;for(var i=col.length-1;i&gt;=1;i--){if(String(col[i][0]).trim()!==''){last=i+1;break;}}const start=last+1;const ab=d.rows.map(function(r){return [r[0],r[1]];});const dh=d.rows.map(function(r){return [r[2],r[3],r[4],r[5],Number(r[6])||0];});sh.getRange(start,1,ab.length,2).setValues(ab);sh.getRange(start,4,dh.length,5).setValues(dh);}}if(d.action==='add_trip'){const data=sh.getDataRange().getValues();var totalRow=-1;for(var i=0;i&lt;data.length;i++){if(String(data[i][0]).trim().toUpperCase()==='TOTAL'){totalRow=i+1;break;}}if(totalRow&lt;0)totalRow=sh.getLastRow()+1;sh.insertRowBefore(totalRow);const nr=totalRow;sh.getRange(nr,1,1,6).setValues([[d.trip.name,d.trip.start,d.trip.end,Number(d.trip.rate)||0,Number(d.trip.nights)||0,Number(d.trip.budget)||0]]);sh.getRange(nr,7).setFormula('=IF($B'+nr+'="","",TEXT($B'+nr+',"YYYY-MM"))');['H','I','J','K'].forEach(function(cl){sh.getRange(cl+nr).setFormula('=SUMIFS(EXPENSES!$J$2:$J$1000,EXPENSES!$A$2:$A$1000,$A'+nr+',EXPENSES!$E$2:$E$1000,'+cl+'$1,EXPENSES!$F$2:$F$1000,"Work")');});sh.getRange('L'+nr).setFormula('=SUM($H'+nr+':$K'+nr+')');sh.getRange('M'+nr).setFormula('=SUMIFS(EXPENSES!$H$2:$H$1000,EXPENSES!$A$2:$A$1000,$A'+nr+',EXPENSES!$F$2:$F$1000,"Work")');sh.getRange('N'+nr).setFormula('=SUMIFS(EXPENSES!$J$2:$J$1000,EXPENSES!$A$2:$A$1000,$A'+nr+',EXPENSES!$F$2:$F$1000,"Personal")');sh.getRange('O'+nr).setFormula('=$F'+nr+'-$L'+nr);sh.getRange('P'+nr).setFormula('=IF($E'+nr+'=0,"",ROUND($L'+nr+'/$E'+nr+',2))');const nt=totalRow+1,last=totalRow;const cols={5:'E',8:'H',9:'I',10:'J',11:'K',12:'L',13:'M',14:'N'};Object.keys(cols).forEach(function(c){sh.getRange(nt,Number(c)).setFormula('=SUM('+cols[c]+'2:'+cols[c]+last+')');});sh.getRange(nt,16).setFormula('=IF($E'+nt+'=0,"",ROUND($L'+nt+'/$E'+nt+',2))');}return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}
 function doGet(e){try{const ss=e.parameter.fileId?SpreadsheetApp.openById(e.parameter.fileId):SpreadsheetApp.getActiveSpreadsheet();const sh=ss.getSheetByName(e.parameter.sheet);if(!sh)return ContentService.createTextOutput(JSON.stringify({ok:false,error:'Sheet not found'})).setMimeType(ContentService.MimeType.JSON);return ContentService.createTextOutput(JSON.stringify({ok:true,data:sh.getDataRange().getValues()})).setMimeType(ContentService.MimeType.JSON);}catch(err){return ContentService.createTextOutput(JSON.stringify({ok:false,error:err.message})).setMimeType(ContentService.MimeType.JSON);}}</div>
     <button class="copybtn" onclick="copyScript()">📋 Copiar código</button>
   </div>
@@ -462,7 +462,7 @@ function doGet(e){try{const ss=e.parameter.fileId?SpreadsheetApp.openById(e.para
     <div class="ff"><label class="fl">Nombre del viaje</label><input type="text" class="fi" id="ntname" placeholder="AGO 10-15"></div>
     <div class="ff"><label class="fl">Inicio</label><input type="date" class="fi" id="ntstart"></div>
     <div class="ff"><label class="fl">Fin</label><input type="date" class="fi" id="ntend"></div>
-    <div class="ff"><label class="fl">Tasa de cambio (COP por USD)</label><input type="number" class="fi" id="ntrate" placeholder="3900"></div>
+    <div class="ff"><label class="fl">Tasa de cambio de este viaje (COP por USD)</label><input type="number" class="fi" id="ntrate" placeholder="3900" step="0.01"><div style="font-size:9px;color:var(--dim);margin-top:4px;font-family:'JetBrains Mono',monospace;">La tasa real del viaje. El Sheet convierte todos sus gastos a USD con este número.</div></div>
     <div class="ff"><label class="fl">Presupuesto USD</label><input type="number" class="fi" id="ntbudget" placeholder="450" value="450"></div>
     <button class="btnp" onclick="saveNewTrip()">Crear viaje</button>
     <button class="btns" onclick="cancelNewTrip()">Cancelar</button>
@@ -1516,9 +1516,7 @@ function openNewTrip(){
   const d=document.getElementById('edate').value||todayISO();
   document.getElementById('ntstart').value=d;
   document.getElementById('ntend').value=d;
-  // suggest last known rate
-  const last=(S.trips||[]).slice(-1)[0];
-  document.getElementById('ntrate').value=last&&last.rate?last.rate:'';
+  document.getElementById('ntrate').value='';
   document.getElementById('modal-trip').classList.add('on');
 }
 async function saveNewTrip(){
@@ -1528,6 +1526,7 @@ async function saveNewTrip(){
   const rate=parseFloat(document.getElementById('ntrate').value)||0;
   const budget=parseFloat(document.getElementById('ntbudget').value)||450;
   if(!name||!start||!end){alert('Necesito nombre, inicio y fin del viaje.');return;}
+  if(!rate||rate<=0){alert('Pon la tasa de cambio del viaje (COP por USD). Sin ella, el Sheet no puede convertir a USD.');return;}
   const ps=parseDate(start), pe=parseDate(end);
   const nights=Math.max(0,Math.round((new Date(pe.y,pe.m,pe.d)-new Date(ps.y,ps.m,ps.d))/86400000));
   const btn=document.querySelector('#modal-trip .btnp');
@@ -1536,17 +1535,14 @@ async function saveNewTrip(){
   btn.textContent='Crear viaje'; btn.disabled=false;
   if(!ok){alert('No se pudo crear el viaje. Revisa la conexión con el Sheet de Ops.');return;}
   cOverlay('modal-trip');
-  // Case 1: created from the ASSIGN flow (importing CSV) → assign the pending expense to it
+  // Case 1: created from the ASSIGN flow → return to the assign modal with the new
+  // trip preselected, so the user confirms the assignment (doesn't assign blindly).
   if(newTripFromAssign){
     newTripFromAssign=false;
-    const it=assignQueue[assignIdx];
-    if(it){
-      it.trip=name;
-      addTravel(it);
-      assignIdx++;
-    }
-    if(assignIdx>=assignQueue.length){ cOverlay('modal-assign'); finishAssign(); }
-    else showAssign();
+    // trips list already refreshed by createTrip(); show the assign modal again
+    showAssign();
+    // preselect the just-created trip in the dropdown
+    const asg=document.getElementById('asgtrip'); if(asg) asg.value=name;
     return;
   }
   // Case 2: created from the expense modal's trip dropdown → just select it
