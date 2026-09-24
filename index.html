@@ -539,7 +539,7 @@ function doGet(e){try{const ss=e.parameter.fileId?SpreadsheetApp.openById(e.para
     <div class="ff"><label class="fl">Monto COP</label><input type="number" class="fi" id="eamt" placeholder="0" inputmode="numeric"></div>
     <div class="ff"><label class="fl">Descripción</label><input type="text" class="fi" id="edesc" placeholder="¿En qué fue?"></div>
     <div class="ff" id="ecatwrap"><label class="fl">Categoría</label><select class="fsel" id="ecat"></select></div>
-    <div class="ff tvonly" style="display:none;"><label class="fl">Viaje</label><select class="fsel" id="etrip"></select></div>
+    <div class="ff tvonly" style="display:none;"><label class="fl">Viaje</label><select class="fsel" id="etrip" onchange="onTripSelect()"></select></div>
     <div class="ff tvonly" style="display:none;"><label class="fl">Categoría del viaje</label>
       <div class="pills" id="etcat">
         <div class="pill on" onclick="selP(this,'etcat')">Flights</div>
@@ -1510,8 +1510,16 @@ function popTrips(){
 }
 
 // ── Crear viaje nuevo ──
+// Cuando el usuario elige "+ Crear viaje nuevo..." en el desplegable, abre el modal.
+function onTripSelect(){
+  const sel=document.getElementById('etrip');
+  if(sel && sel.value==='__new__') openNewTrip();
+}
 function openNewTrip(){
   newTripFromAssign=false;
+  // Reset the dropdown back to the first real trip so choosing "new" again re-fires onchange
+  const sel=document.getElementById('etrip');
+  if(sel && (S.trips||[]).length){ sel.value=S.trips[0].name; }
   document.getElementById('ntname').value='';
   const d=document.getElementById('edate').value||todayISO();
   document.getElementById('ntstart').value=d;
